@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% block title %}Question #{{ question.id }} - PSC App{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:questions' %}">Questions</a></li>
+                <li class="breadcrumb-item active">Question #{{ question.id }}</li>
+            </ol>
+        </nav>
+        <h2 class="mb-3">
+            <i class="fas fa-question-circle me-2"></i>Question #{{ question.id }}
+            <span class="badge 
+                {% if question.status == 'PUBLIC' %}bg-success
+                {% elif question.status == 'PENDING_REVIEW' %}bg-warning
+                {% elif question.status == 'DRAFT' %}bg-secondary
+                {% else %}bg-info{% endif %} ms-2">
+                {{ question.get_status_display }}
+            </span>
+        </h2>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Question Details -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-question me-2"></i>Question Content
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h6 class="text-muted">English</h6>
+                    <p class="fs-5 bg-light p-3 rounded">{{ question.question_text_en }}</p>
+                </div>
+                
+                <div class="mb-4">
+                    <h6 class="text-muted">Nepali</h6>
+                    <p class="fs-5 bg-light p-3 rounded">{{ question.question_text_np }}</p>
+                </div>
+                
+                {% if question.image %}
+                <div class="mb-4">
+                    <h6 class="text-muted">Attached Image</h6>
+                    <img src="{{ question.image.url }}" alt="Question Image" class="img-fluid rounded" style="max-height: 300px;">
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Answer Options -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-list me-2"></i>Answer Options
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for answer in question.answers.all %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center
+                        {% if answer.is_correct %}list-group-item-success{% endif %}">
+                        <div>
+                            <strong class="me-2">{{ forloop.counter }}.</strong>
+                            {{ answer.answer_text_en }}
+                            <small class="text-muted d-block ms-4">{{ answer.answer_text_np }}</small>
+                        </div>
+                        {% if answer.is_correct %}
+                        <span class="badge bg-success"><i class="fas fa-check me-1"></i>Correct</span>
+                        {% endif %}
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item text-muted">No answers provided</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Explanation -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-lightbulb me-2"></i>Explanation
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6 class="text-muted">English</h6>
+                    <p>{{ question.explanation_en|default:"No explanation provided" }}</p>
+                </div>
+                <div>
+                    <h6 class="text-muted">Nepali</h6>
+                    <p>{{ question.explanation_np|default:"No explanation provided" }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Reports for this question -->
+        {% if reports %}
+        <div class="card mb-4">
+            <div class="card-header bg-warning">
+                <i class="fas fa-flag me-2"></i>Reports ({{ reports.count }})
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for report in reports %}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="badge 
+                                    {% if report.reason == 'INCORRECT_ANSWER' %}bg-danger
+                                    {% elif report.reason == 'TYPO' %}bg-warning text-dark
+                                    {% else %}bg-secondary{% endif %} me-2">
+                                    {{ report.get_reason_display }}
+                                </span>
+                                <strong>{{ report.reported_by.username|default:"Anonymous" }}</strong>
+                                <p class="mb-0 mt-1">{{ report.description }}</p>
+                            </div>
+                            <span class="badge 
+                                {% if report.status == 'PENDING' %}bg-warning
+                                {% elif report.status == 'RESOLVED' %}bg-success
+                                {% else %}bg-secondary{% endif %}">
+                                {{ report.get_status_display }}
+                            </span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-md-4">
+        <!-- Metadata -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i>Metadata
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Category:</span>
+                        <strong>{{ question.category.name_en|default:"Not Set" }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Difficulty:</span>
+                        <span class="badge 
+                            {% if question.difficulty_level == 'EASY' %}bg-success
+                            {% elif question.difficulty_level == 'MEDIUM' %}bg-warning
+                            {% else %}bg-danger{% endif %}">
+                            {{ question.difficulty_level|default:"Not Set" }}
+                        </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Type:</span>
+                        <strong>{{ question.get_question_type_display }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Created:</span>
+                        <strong>{{ question.created_at|date:"M d, Y" }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Created By:</span>
+                        <strong>{{ question.created_by.username|default:"System" }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Verified:</span>
+                        {% if question.is_verified %}
+                        <span class="badge bg-success">Yes</span>
+                        {% else %}
+                        <span class="badge bg-secondary">No</span>
+                        {% endif %}
+                    </li>
+                    {% if question.source_reference %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Source:</span>
+                        <strong>{{ question.source_reference }}</strong>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-chart-bar me-2"></i>Statistics
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <h4 class="text-primary mb-0">{{ question.times_attempted }}</h4>
+                        <small class="text-muted">Total Attempts</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h4 class="text-success mb-0">{{ question.times_correct }}</h4>
+                        <small class="text-muted">Correct Answers</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h4 class="text-info mb-0">{{ question.get_accuracy_rate|floatformat:1 }}%</h4>
+                        <small class="text-muted">Accuracy Rate</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h4 class="text-danger mb-0">{{ question.reported_count }}</h4>
+                        <small class="text-muted">Reports</small>
+                    </div>
+                </div>
+                
+                <!-- Accuracy Bar -->
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-success" role="progressbar" 
+                         style="width: {{ question.get_accuracy_rate }}%;" 
+                         aria-valuenow="{{ question.get_accuracy_rate }}" 
+                         aria-valuemin="0" aria-valuemax="100">
+                        {{ question.get_accuracy_rate|floatformat:1 }}%
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-cogs me-2"></i>Actions
+            </div>
+            <div class="card-body">
+                {% if question.status != 'PUBLIC' %}
+                <form method="post" action="{% url 'dashboard:publish_question' question.id %}" class="mb-2">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-globe me-1"></i>Make Public
+                    </button>
+                </form>
+                {% endif %}
+                
+                {% if not question.is_verified %}
+                <form method="post" action="{% url 'dashboard:verify_question' question.id %}" class="mb-2">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-check-circle me-1"></i>Mark as Verified
+                    </button>
+                </form>
+                {% endif %}
+                
+                <a href="{% url 'dashboard:check_duplicate' question.id %}" class="btn btn-outline-warning w-100 mb-2">
+                    <i class="fas fa-copy me-1"></i>Check for Duplicates
+                </a>
+                
+                <a href="/" class="btn btn-outline-secondary w-100">
+                    <i class="fas fa-edit me-1"></i>Edit in Admin
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

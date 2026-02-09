@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+{% block title %}Contribute a Question - PSC App{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="mb-3"><i class="fas fa-plus-circle me-2"></i>Contribute a Question</h2>
+        <p class="text-muted">Help the community by contributing quality questions for PSC exam preparation</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <form method="post" enctype="multipart/form-data" id="contributionForm">
+            {% csrf_token %}
+            
+            <!-- Question Content -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-question me-2"></i>Question Content
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="question_text_en" class="form-label">Question (English) <span class="text-danger">*</span></label>
+                        <textarea name="question_text_en" id="question_text_en" class="form-control" rows="3" required
+                            placeholder="Enter the question in English..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="question_text_np" class="form-label">Question (Nepali) <span class="text-danger">*</span></label>
+                        <textarea name="question_text_np" id="question_text_np" class="form-control" rows="3" required
+                            placeholder="Enter the question in Nepali (नेपालीमा प्रश्न लेख्नुहोस्)..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="image" class="form-label">Question Image (Optional)</label>
+                        <input type="file" name="image" id="image" class="form-control" accept="image/*">
+                        <small class="text-muted">Upload a diagram, chart, or relevant image if needed</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Classification -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-tags me-2"></i>Classification
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="category" class="form-label">Category <span class="text-danger">*</span></label>
+                            <select name="category" id="category" class="form-select" required>
+                                <option value="">Select Category</option>
+                                {% for cat in categories %}
+                                <option value="{{ cat.id }}">{{ cat.name_en }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="difficulty_level" class="form-label">Difficulty Level</label>
+                            <select name="difficulty_level" id="difficulty_level" class="form-select">
+                                <option value="">Not Specified</option>
+                                <option value="EASY">Easy</option>
+                                <option value="MEDIUM">Medium</option>
+                                <option value="HARD">Hard</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="source_reference" class="form-label">Source Reference (Optional)</label>
+                        <input type="text" name="source_reference" id="source_reference" class="form-control"
+                            placeholder="e.g., PSC 2078 Nasu Exam, Book Name Page 123">
+                        <small class="text-muted">Cite the source if this question is from a specific exam or book</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Answer Options -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-list me-2"></i>Answer Options
+                    <small class="text-muted float-end">Mark the correct answer</small>
+                </div>
+                <div class="card-body">
+                    {% for i in "1234" %}
+                    <div class="row mb-3 answer-option">
+                        <div class="col-1 d-flex align-items-center">
+                            <div class="form-check">
+                                <input type="radio" name="correct_answer" value="{{ i }}" class="form-check-input" 
+                                    {% if forloop.first %}required{% endif %} id="correct_{{ i }}">
+                                <label class="form-check-label" for="correct_{{ i }}">
+                                    <strong>{{ forloop.counter }}</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-11">
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <input type="text" name="answer_en_{{ i }}" class="form-control" 
+                                        placeholder="Answer {{ forloop.counter }} (English)" required>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <input type="text" name="answer_np_{{ i }}" class="form-control" 
+                                        placeholder="Answer {{ forloop.counter }} (Nepali)" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Explanation -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-lightbulb me-2"></i>Explanation
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="explanation_en" class="form-label">Explanation (English) <span class="text-danger">*</span></label>
+                        <textarea name="explanation_en" id="explanation_en" class="form-control" rows="3" required
+                            placeholder="Explain why the correct answer is correct..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="explanation_np" class="form-label">Explanation (Nepali) <span class="text-danger">*</span></label>
+                        <textarea name="explanation_np" id="explanation_np" class="form-control" rows="3" required
+                            placeholder="नेपालीमा व्याख्या लेख्नुहोस्..."></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Consent -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="form-check">
+                        <input type="checkbox" name="consent_given" id="consent_given" class="form-check-input" required>
+                        <label class="form-check-label" for="consent_given">
+                            I agree to contribute this question to the platform. I understand that once approved, 
+                            this question may be made public and used by other users for exam preparation. 
+                            I confirm that this is original content or properly attributed.
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Submit -->
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-paper-plane me-2"></i>Submit Contribution
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-info-circle me-2"></i>Contribution Guidelines
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Questions must be relevant to PSC exams</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Provide both English and Nepali versions</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Include a clear explanation</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Ensure only one correct answer</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Avoid duplicate questions</li>
+                    <li class="mb-0"><i class="fas fa-check text-success me-2"></i>Cite sources when applicable</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <i class="fas fa-gift me-2"></i>Rewards
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2"><i class="fas fa-star text-warning me-2"></i><strong>50 XP</strong> for each contribution</li>
+                    <li class="mb-2"><i class="fas fa-trophy text-warning me-2"></i>Top contributors featured monthly</li>
+                    <li class="mb-2"><i class="fas fa-share text-primary me-2"></i>Facebook shoutout for top contributors</li>
+                    <li class="mb-0"><i class="fas fa-medal text-warning me-2"></i>Special badges for milestones</li>
+                </ul>
+            </div>
+        </div>
+        
+        {% if user.is_authenticated and user.profile %}
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-bar me-2"></i>Your Stats
+            </div>
+            <div class="card-body text-center">
+                <div class="row">
+                    <div class="col-6">
+                        <h3 class="text-primary mb-0">{{ user.profile.total_contributions }}</h3>
+                        <small class="text-muted">Contributions</small>
+                    </div>
+                    <div class="col-6">
+                        <h3 class="text-success mb-0">{{ user.profile.experience_points }}</h3>
+                        <small class="text-muted">XP Points</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Highlight selected correct answer
+    const radios = document.querySelectorAll('input[name="correct_answer"]');
+    radios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.querySelectorAll('.answer-option').forEach(opt => {
+                opt.classList.remove('bg-light', 'border-success');
+            });
+            if (this.checked) {
+                this.closest('.answer-option').classList.add('bg-light', 'border-success');
+            }
+        });
+    });
+    
+    // Form validation
+    const form = document.getElementById('contributionForm');
+    form.addEventListener('submit', function(e) {
+        if (!document.querySelector('input[name="correct_answer"]:checked')) {
+            e.preventDefault();
+            alert('Please select the correct answer.');
+        }
+    });
+});
+</script>
+{% endblock %}

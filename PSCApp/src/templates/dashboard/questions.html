@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+{% block title %}Questions - PSC App{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="mb-3"><i class="fas fa-question-circle me-2"></i>Question Bank</h2>
+        <p class="text-muted">Filter, review, and manage questions in the system</p>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-2">
+                <label for="status" class="form-label">Status</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="DRAFT" {% if request.GET.status == 'DRAFT' %}selected{% endif %}>Draft</option>
+                    <option value="PENDING_REVIEW" {% if request.GET.status == 'PENDING_REVIEW' %}selected{% endif %}>Pending Review</option>
+                    <option value="PUBLIC" {% if request.GET.status == 'PUBLIC' %}selected{% endif %}>Public</option>
+                    <option value="PRIVATE" {% if request.GET.status == 'PRIVATE' %}selected{% endif %}>Private</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="category" class="form-label">Category</label>
+                <select name="category" id="category" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if request.GET.category == cat.id|stringformat:"d" %}selected{% endif %}>{{ cat.name_en }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="difficulty" class="form-label">Difficulty</label>
+                <select name="difficulty" id="difficulty" class="form-select">
+                    <option value="">All Levels</option>
+                    <option value="EASY" {% if request.GET.difficulty == 'EASY' %}selected{% endif %}>Easy</option>
+                    <option value="MEDIUM" {% if request.GET.difficulty == 'MEDIUM' %}selected{% endif %}>Medium</option>
+                    <option value="HARD" {% if request.GET.difficulty == 'HARD' %}selected{% endif %}>Hard</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="search" class="form-label">Search</label>
+                <input type="text" name="search" id="search" class="form-control" placeholder="Search questions..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="fas fa-search me-1"></i>Search
+                </button>
+                <a href="{% url 'dashboard:questions' %}" class="btn btn-secondary">
+                    <i class="fas fa-times me-1"></i>Clear
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Statistics Row -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <h4 class="text-success mb-0">{{ public_count|default:0 }}</h4>
+                <small class="text-muted">Public Questions</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <h4 class="text-warning mb-0">{{ pending_count|default:0 }}</h4>
+                <small class="text-muted">Pending Review</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <h4 class="text-secondary mb-0">{{ draft_count|default:0 }}</h4>
+                <small class="text-muted">Drafts</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <h4 class="text-danger mb-0">{{ reported_count|default:0 }}</h4>
+                <small class="text-muted">Reported</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Questions Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Questions ({{ questions.paginator.count }} total)</span>
+        <div>
+            <a href="{% url 'dashboard:export_questions' %}?{{ request.GET.urlencode }}" class="btn btn-sm btn-outline-light me-2">
+                <i class="fas fa-download me-1"></i>Export CSV
+            </a>
+            <button class="btn btn-sm btn-success" id="bulkPublish" disabled>
+                <i class="fas fa-globe me-1"></i>Make Public
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th><input type="checkbox" id="selectAll"></th>
+                        <th>ID</th>
+                        <th>Question</th>
+                        <th>Category</th>
+                        <th>Difficulty</th>
+                        <th>Status</th>
+                        <th>Stats</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for question in questions %}
+                    <tr>
+                        <td><input type="checkbox" class="question-checkbox" value="{{ question.id }}"></td>
+                        <td>{{ question.id }}</td>
+                        <td>
+                            <div class="d-flex flex-column">
+                                <span>{{ question.question_text_en|truncatechars:80 }}</span>
+                                {% if question.reported_count > 0 %}
+                                <small class="text-danger"><i class="fas fa-flag me-1"></i>{{ question.reported_count }} reports</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark">{{ question.category.name_en|default:"-" }}</span>
+                        </td>
+                        <td>
+                            {% if question.difficulty_level %}
+                            <span class="badge 
+                                {% if question.difficulty_level == 'EASY' %}bg-success
+                                {% elif question.difficulty_level == 'MEDIUM' %}bg-warning
+                                {% else %}bg-danger{% endif %}">
+                                {{ question.difficulty_level }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if question.status == 'PUBLIC' %}bg-success
+                                {% elif question.status == 'PENDING_REVIEW' %}bg-warning
+                                {% elif question.status == 'DRAFT' %}bg-secondary
+                                {% else %}bg-info{% endif %}">
+                                {{ question.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <small>
+                                <span class="text-success" title="Correct"><i class="fas fa-check"></i> {{ question.times_correct }}</span> /
+                                <span class="text-muted" title="Attempted">{{ question.times_attempted }}</span>
+                                {% if question.times_attempted > 0 %}
+                                <br><span class="text-info">{{ question.get_accuracy_rate|floatformat:1 }}% accuracy</span>
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{% url 'dashboard:question_detail' question.id %}" class="btn btn-sm btn-outline-primary" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if question.status != 'PUBLIC' %}
+                                <button class="btn btn-sm btn-outline-success publish-btn" data-id="{{ question.id }}" title="Make Public">
+                                    <i class="fas fa-globe"></i>
+                                </button>
+                                {% endif %}
+                                <a href="{% url 'dashboard:check_duplicate' question.id %}" class="btn btn-sm btn-outline-warning" title="Check Duplicates">
+                                    <i class="fas fa-copy"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">No questions found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if questions.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if questions.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ questions.previous_page_number }}&{{ request.GET.urlencode }}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in questions.paginator.page_range %}
+        {% if questions.paginator.num_pages <= 10 or num == 1 or num == questions.paginator.num_pages or num >= questions.number|add:"-2" and num <= questions.number|add:"2" %}
+        <li class="page-item {% if questions.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}&{{ request.GET.urlencode }}">{{ num }}</a>
+        </li>
+        {% elif num == 2 or num == questions.paginator.num_pages|add:"-1" %}
+        <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
+        {% endfor %}
+        
+        {% if questions.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ questions.next_page_number }}&{{ request.GET.urlencode }}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<!-- Bulk Publish Form (hidden) -->
+<form method="post" action="{% url 'dashboard:bulk_publish_questions' %}" id="bulkPublishForm" style="display:none;">
+    {% csrf_token %}
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.question-checkbox');
+    const bulkPublish = document.getElementById('bulkPublish');
+    
+    selectAll.addEventListener('change', function() {
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateBulkButtons();
+    });
+    
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateBulkButtons);
+    });
+    
+    function updateBulkButtons() {
+        const checked = document.querySelectorAll('.question-checkbox:checked').length;
+        bulkPublish.disabled = checked === 0;
+    }
+    
+    function getSelectedIds() {
+        return Array.from(document.querySelectorAll('.question-checkbox:checked')).map(cb => cb.value);
+    }
+    
+    // Bulk Publish
+    bulkPublish.addEventListener('click', function() {
+        const selectedIds = getSelectedIds();
+        if (selectedIds.length === 0) return;
+        
+        if (confirm(`Make ${selectedIds.length} questions public?`)) {
+            const form = document.getElementById('bulkPublishForm');
+            selectedIds.forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'question_ids';
+                input.value = id;
+                form.appendChild(input);
+            });
+            form.submit();
+        }
+    });
+    
+    document.querySelectorAll('.publish-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (confirm('Make this question public?')) {
+                fetch(`/dashboard/question/${this.dataset.id}/publish/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                    }
+                }).then(() => location.reload());
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

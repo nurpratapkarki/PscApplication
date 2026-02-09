@@ -1,0 +1,13 @@
+# Procfile for PSCApp
+# Used for deploying to PaaS platforms like Heroku, Railway, Render, etc.
+
+# Web server process (using Gunicorn)
+# Adjust workers based on your needs: (2 x CPU cores) + 1
+web: gunicorn src.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - --log-level info
+
+# Release task (runs migrations before deployment)
+release: python manage.py migrate --noinput && python manage.py collectstatic --noinput
+
+# Celery worker and beat scheduler
+worker: celery -A src worker --loglevel=info
+beat: celery -A src beat --loglevel=info

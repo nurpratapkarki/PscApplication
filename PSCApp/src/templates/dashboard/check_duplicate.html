@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block title %}Duplicate Check - Question #{{ question.id }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:questions' %}">Questions</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:question_detail' question.id %}">Q#{{ question.id }}</a></li>
+                <li class="breadcrumb-item active">Duplicate Check</li>
+            </ol>
+        </nav>
+        <h2 class="mb-3">
+            <i class="fas fa-copy me-2"></i>Duplicate Check for Question #{{ question.id }}
+        </h2>
+    </div>
+</div>
+
+<!-- Source Question -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <i class="fas fa-question-circle me-2"></i>Source Question
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h6 class="text-muted">English</h6>
+                <p class="bg-light p-3 rounded">{{ question.question_text_en }}</p>
+            </div>
+            <div class="col-md-6">
+                <h6 class="text-muted">Nepali</h6>
+                <p class="bg-light p-3 rounded">{{ question.question_text_np }}</p>
+            </div>
+        </div>
+        <div class="d-flex gap-3">
+            <span class="badge bg-secondary">{{ question.category.name_en|default:"No Category" }}</span>
+            <span class="badge 
+                {% if question.status == 'PUBLIC' %}bg-success
+                {% elif question.status == 'PENDING_REVIEW' %}bg-warning
+                {% elif question.status == 'DRAFT' %}bg-secondary
+                {% else %}bg-info{% endif %}">{{ question.get_status_display }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Duplicate Check Results -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>
+            <i class="fas fa-search me-2"></i>Potential Duplicates
+            {% if has_exact_match %}
+            <span class="badge bg-danger ms-2">Exact Match Found!</span>
+            {% endif %}
+        </span>
+        <span class="badge bg-info">{{ duplicates|length }} Similar Questions Found</span>
+    </div>
+    <div class="card-body">
+        {% if duplicates %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Question (English)</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Similarity</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dup in duplicates %}
+                    <tr class="{% if dup.similarity == 'exact' %}table-danger{% elif dup.similarity == 'high' %}table-warning{% endif %}">
+                        <td>{{ dup.question.id }}</td>
+                        <td>
+                            {{ dup.question.question_text_en|truncatechars:100 }}
+                            {% if dup.similarity == 'exact' %}
+                            <span class="badge bg-danger">Exact Match</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ dup.question.category.name_en|default:"-" }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if dup.question.status == 'PUBLIC' %}bg-success
+                                {% elif dup.question.status == 'PENDING_REVIEW' %}bg-warning
+                                {% else %}bg-secondary{% endif %}">
+                                {{ dup.question.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="progress" style="width: 100px; height: 20px;">
+                                <div class="progress-bar 
+                                    {% if dup.score >= 90 %}bg-danger
+                                    {% elif dup.score >= 70 %}bg-warning
+                                    {% else %}bg-info{% endif %}" 
+                                    role="progressbar" 
+                                    style="width: {{ dup.score }}%;">
+                                    {{ dup.score }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <a href="{% url 'dashboard:question_detail' dup.question.id %}" class="btn btn-sm btn-outline-primary" title="View">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if has_exact_match %}
+        <div class="alert alert-danger mt-3">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Warning:</strong> This question appears to be a duplicate. Consider rejecting or merging.
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+            <h4>No Duplicates Found</h4>
+            <p class="text-muted">This question appears to be unique in the database.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="d-flex gap-2">
+            <a href="{% url 'dashboard:question_detail' question.id %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Question
+            </a>
+            {% if not has_exact_match and question.status != 'PUBLIC' %}
+            <form method="post" action="{% url 'dashboard:publish_question' question.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-globe me-1"></i>Approve & Make Public
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

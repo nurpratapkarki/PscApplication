@@ -1,0 +1,395 @@
+{% extends 'base.html' %}
+{% block title %}Contributions - PSC App{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="mb-3"><i class="fas fa-file-alt me-2"></i>Question Contributions</h2>
+        <p class="text-muted">Review and manage user-contributed questions</p>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="status" class="form-label">Status</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="PENDING" {% if request.GET.status == 'PENDING' %}selected{% endif %}>Pending</option>
+                    <option value="APPROVED" {% if request.GET.status == 'APPROVED' %}selected{% endif %}>Approved</option>
+                    <option value="REJECTED" {% if request.GET.status == 'REJECTED' %}selected{% endif %}>Rejected</option>
+                    <option value="MADE_PUBLIC" {% if request.GET.status == 'MADE_PUBLIC' %}selected{% endif %}>Made Public</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="month" class="form-label">Month</label>
+                <select name="month" id="month" class="form-select">
+                    <option value="">All Months</option>
+                    {% for i in month_choices %}
+                    <option value="{{ i }}" {% if request.GET.month == i|stringformat:"d" %}selected{% endif %}>
+                        {% if i == 1 %}January{% elif i == 2 %}February{% elif i == 3 %}March{% elif i == 4 %}April{% elif i == 5 %}May{% elif i == 6 %}June{% elif i == 7 %}July{% elif i == 8 %}August{% elif i == 9 %}September{% elif i == 10 %}October{% elif i == 11 %}November{% else %}December{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="year" class="form-label">Year</label>
+                <select name="year" id="year" class="form-select">
+                    <option value="">All Years</option>
+                    {% for year in year_choices %}
+                    <option value="{{ year }}" {% if request.GET.year == year|stringformat:"d" %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="fas fa-filter me-1"></i>Filter
+                </button>
+                <a href="{% url 'dashboard:contributions' %}" class="btn btn-secondary">
+                    <i class="fas fa-times me-1"></i>Clear
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Statistics Row -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <h4 class="text-warning mb-0">{{ pending_count|default:0 }}</h4>
+                <small class="text-muted">Pending</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <h4 class="text-success mb-0">{{ approved_count|default:0 }}</h4>
+                <small class="text-muted">Approved</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <h4 class="text-danger mb-0">{{ rejected_count|default:0 }}</h4>
+                <small class="text-muted">Rejected</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <h4 class="text-info mb-0">{{ public_count|default:0 }}</h4>
+                <small class="text-muted">Made Public</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contributions Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Contributions ({{ contributions.paginator.count }} total)</span>
+        <div>
+            <a href="{% url 'dashboard:export_contributions' %}?{{ request.GET.urlencode }}" class="btn btn-sm btn-outline-light me-2">
+                <i class="fas fa-download me-1"></i>Export CSV
+            </a>
+            <button class="btn btn-sm btn-success" id="bulkApprove" disabled>
+                <i class="fas fa-check me-1"></i>Approve Selected
+            </button>
+            <button class="btn btn-sm btn-info" id="bulkMakePublic" disabled>
+                <i class="fas fa-globe me-1"></i>Make Public
+            </button>
+            <button class="btn btn-sm btn-danger" id="bulkReject" disabled>
+                <i class="fas fa-times me-1"></i>Reject Selected
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th><input type="checkbox" id="selectAll"></th>
+                        <th>ID</th>
+                        <th>Contributor</th>
+                        <th>Question (English)</th>
+                        <th>Category</th>
+                        <th>Month/Year</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contribution in contributions %}
+                    <tr>
+                        <td><input type="checkbox" class="contrib-checkbox" value="{{ contribution.id }}"></td>
+                        <td>{{ contribution.id }}</td>
+                        <td>
+                            <strong>{{ contribution.user.username }}</strong>
+                        </td>
+                        <td>{{ contribution.question.question_text_en|truncatechars:60 }}</td>
+                        <td>{{ contribution.question.category.name_en|default:"-" }}</td>
+                        <td>{{ contribution.contribution_month }}/{{ contribution.contribution_year }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if contribution.status == 'PENDING' %}bg-warning
+                                {% elif contribution.status == 'APPROVED' %}bg-success
+                                {% elif contribution.status == 'REJECTED' %}bg-danger
+                                {% else %}bg-info{% endif %}">
+                                {{ contribution.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{% url 'dashboard:contribution_detail' contribution.id %}" class="btn btn-sm btn-outline-primary" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if contribution.status == 'PENDING' %}
+                                <button class="btn btn-sm btn-outline-success approve-btn" data-id="{{ contribution.id }}" title="Approve">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger reject-btn" data-id="{{ contribution.id }}" title="Reject">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                                {% elif contribution.status == 'APPROVED' %}
+                                <form method="post" action="{% url 'dashboard:make_public' contribution.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-info" title="Make Public">
+                                        <i class="fas fa-globe"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">No contributions found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if contributions.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if contributions.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ contributions.previous_page_number }}&{{ request.GET.urlencode }}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in contributions.paginator.page_range %}
+            {% if contributions.paginator.num_pages > 10 %}
+                {% if num == 1 or num == contributions.paginator.num_pages or num >= contributions.number|add:"-2" and num <= contributions.number|add:"2" %}
+                <li class="page-item {% if contributions.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}&{{ request.GET.urlencode }}">{{ num }}</a>
+                </li>
+                {% elif num == contributions.number|add:"-3" or num == contributions.number|add:"3" %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% else %}
+                <li class="page-item {% if contributions.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}&{{ request.GET.urlencode }}">{{ num }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if contributions.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ contributions.next_page_number }}&{{ request.GET.urlencode }}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<!-- Rejection Reason Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Reject Contribution</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard:reject_contribution' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="contribution_id" id="rejectContribId">
+                    <div class="mb-3">
+                        <label for="rejection_reason" class="form-label">Reason for Rejection</label>
+                        <textarea name="rejection_reason" id="rejection_reason" class="form-control" rows="4" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Reject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Reject Modal -->
+<div class="modal fade" id="bulkRejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bulk Reject Contributions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard:bulk_reject_contributions' %}" id="bulkRejectForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>You are about to reject <strong id="bulkRejectCount">0</strong> contributions.</p>
+                    <div class="mb-3">
+                        <label for="bulk_rejection_reason" class="form-label">Reason for Rejection</label>
+                        <textarea name="rejection_reason" id="bulk_rejection_reason" class="form-control" rows="4" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Reject All</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Approve Form (hidden) -->
+<form method="post" action="{% url 'dashboard:bulk_approve_contributions' %}" id="bulkApproveForm" style="display:none;">
+    {% csrf_token %}
+</form>
+
+<!-- Bulk Make Public Form (hidden) -->
+<form method="post" action="{% url 'dashboard:bulk_make_public' %}" id="bulkMakePublicForm" style="display:none;">
+    {% csrf_token %}
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.contrib-checkbox');
+    const bulkApprove = document.getElementById('bulkApprove');
+    const bulkReject = document.getElementById('bulkReject');
+    const bulkMakePublic = document.getElementById('bulkMakePublic');
+    const rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    const bulkRejectModal = new bootstrap.Modal(document.getElementById('bulkRejectModal'));
+    
+    // Select All
+    selectAll.addEventListener('change', function() {
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateBulkButtons();
+    });
+    
+    // Individual checkbox
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateBulkButtons);
+    });
+    
+    function updateBulkButtons() {
+        const checked = document.querySelectorAll('.contrib-checkbox:checked').length;
+        bulkApprove.disabled = checked === 0;
+        bulkReject.disabled = checked === 0;
+        bulkMakePublic.disabled = checked === 0;
+    }
+    
+    function getSelectedIds() {
+        return Array.from(document.querySelectorAll('.contrib-checkbox:checked')).map(cb => cb.value);
+    }
+    
+    // Bulk Approve
+    bulkApprove.addEventListener('click', function() {
+        const selectedIds = getSelectedIds();
+        if (selectedIds.length === 0) return;
+        
+        if (confirm(`Approve ${selectedIds.length} contributions?`)) {
+            const form = document.getElementById('bulkApproveForm');
+            selectedIds.forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'contribution_ids';
+                input.value = id;
+                form.appendChild(input);
+            });
+            form.submit();
+        }
+    });
+    
+    // Bulk Make Public
+    bulkMakePublic.addEventListener('click', function() {
+        const selectedIds = getSelectedIds();
+        if (selectedIds.length === 0) return;
+        
+        if (confirm(`Make ${selectedIds.length} contributions public?`)) {
+            const form = document.getElementById('bulkMakePublicForm');
+            selectedIds.forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'contribution_ids';
+                input.value = id;
+                form.appendChild(input);
+            });
+            form.submit();
+        }
+    });
+    
+    // Bulk Reject
+    bulkReject.addEventListener('click', function() {
+        const selectedIds = getSelectedIds();
+        if (selectedIds.length === 0) return;
+        
+        document.getElementById('bulkRejectCount').textContent = selectedIds.length;
+        
+        // Clear previous hidden inputs
+        const form = document.getElementById('bulkRejectForm');
+        form.querySelectorAll('input[name="contribution_ids"]').forEach(i => i.remove());
+        
+        // Add new hidden inputs
+        selectedIds.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'contribution_ids';
+            input.value = id;
+            form.appendChild(input);
+        });
+        
+        bulkRejectModal.show();
+    });
+    
+    // Single Approve buttons
+    document.querySelectorAll('.approve-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (confirm('Approve this contribution?')) {
+                fetch(`/dashboard/contribution/${this.dataset.id}/approve/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                    }
+                }).then(() => location.reload());
+            }
+        });
+    });
+    
+    // Single Reject buttons
+    document.querySelectorAll('.reject-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('rejectContribId').value = this.dataset.id;
+            rejectModal.show();
+        });
+    });
+});
+</script>
+{% endblock %}

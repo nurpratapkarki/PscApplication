@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - PSC App{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="mb-3"><i class="fas fa-chart-line me-2"></i>Platform Dashboard</h2>
+        <p class="text-muted">Real-time overview of the PSC Exam Preparation Platform</p>
+    </div>
+</div>
+
+<!-- Key Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <div class="stat-number text-primary">{{ stats.total_questions_public|default:0 }}</div>
+                <p class="text-muted mb-0">Public Questions</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <div class="stat-number text-warning">{{ stats.total_questions_pending|default:0 }}</div>
+                <p class="text-muted mb-0">Pending Review</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <div class="stat-number text-success">{{ stats.total_users_active|default:0 }}</div>
+                <p class="text-muted mb-0">Active Users (30 days)</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <div class="stat-number text-info">{{ stats.total_mock_tests_taken|default:0 }}</div>
+                <p class="text-muted mb-0">Tests Taken</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly Stats -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-calendar-alt me-2"></i>This Month's Activity
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Contributions
+                        <span class="badge bg-primary rounded-pill">{{ stats.total_contributions_this_month|default:0 }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Questions Added Today
+                        <span class="badge bg-success rounded-pill">{{ stats.questions_added_today|default:0 }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Total Answers Submitted
+                        <span class="badge bg-info rounded-pill">{{ stats.total_answers_submitted|default:0 }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-trophy me-2"></i>Top Contributor
+            </div>
+            <div class="card-body text-center">
+                {% if stats.top_contributor_this_month %}
+                <div class="mb-3">
+                    <i class="fas fa-user-circle fa-4x text-primary"></i>
+                </div>
+                <h5>{{ stats.top_contributor_this_month.username }}</h5>
+                <p class="text-muted">Leading contributor this month</p>
+                {% else %}
+                <p class="text-muted">No contributions this month yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-fire me-2"></i>Popular Category
+            </div>
+            <div class="card-body text-center">
+                {% if stats.most_attempted_category %}
+                <div class="mb-3">
+                    <i class="fas fa-folder-open fa-4x text-warning"></i>
+                </div>
+                <h5>{{ stats.most_attempted_category.name_en }}</h5>
+                <p class="text-muted">Most attempted category</p>
+                {% else %}
+                <p class="text-muted">No data available yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity Chart -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-area me-2"></i>Daily Activity (Last 7 Days)
+            </div>
+            <div class="card-body">
+                <canvas id="activityChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Contributions and Reports -->
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-file-alt me-2"></i>Recent Contributions</span>
+                <a href="{% url 'dashboard:contributions' %}" class="btn btn-sm btn-light">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_contributions %}
+                <ul class="list-group list-group-flush">
+                    {% for contrib in recent_contributions %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ contrib.user.username }}</strong>
+                            <p class="mb-0 text-muted small">{{ contrib.question.question_text_en|truncatechars:50 }}</p>
+                        </div>
+                        <span class="badge 
+                            {% if contrib.status == 'PENDING' %}bg-warning
+                            {% elif contrib.status == 'APPROVED' %}bg-success
+                            {% elif contrib.status == 'REJECTED' %}bg-danger
+                            {% else %}bg-info{% endif %}">
+                            {{ contrib.get_status_display }}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted text-center">No recent contributions</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-flag me-2"></i>Recent Reports</span>
+                <a href="{% url 'dashboard:reports' %}" class="btn btn-sm btn-light">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_reports %}
+                <ul class="list-group list-group-flush">
+                    {% for report in recent_reports %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Q{{ report.question.id }}</strong> - {{ report.get_reason_display }}
+                            <p class="mb-0 text-muted small">{{ report.description|truncatechars:50 }}</p>
+                        </div>
+                        <span class="badge 
+                            {% if report.status == 'PENDING' %}bg-warning
+                            {% elif report.status == 'RESOLVED' %}bg-success
+                            {% else %}bg-secondary{% endif %}">
+                            {{ report.get_status_display }}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted text-center">No recent reports</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Activity Chart
+    const ctx = document.getElementById('activityChart').getContext('2d');
+    const activityData = {{ activity_data|safe }};
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: activityData.labels,
+            datasets: [
+                {
+                    label: 'New Users',
+                    data: activityData.new_users,
+                    borderColor: '#4a90a4',
+                    backgroundColor: 'rgba(74, 144, 164, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Questions Added',
+                    data: activityData.questions_added,
+                    borderColor: '#48bb78',
+                    backgroundColor: 'rgba(72, 187, 120, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Tests Taken',
+                    data: activityData.tests_taken,
+                    borderColor: '#ed8936',
+                    backgroundColor: 'rgba(237, 137, 54, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
