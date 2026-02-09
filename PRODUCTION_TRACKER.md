@@ -21,19 +21,19 @@
 
 ### Phase A: Fix Critical Gaps (Must-Have for Production)
 
-- [ ] **A1. Initialize git repo at project root** - Monorepo with both backend and frontend
-- [ ] **A2. Wire Google OAuth on frontend** - Backend ready, need expo-auth-session integration
-- [ ] **A3. Complete missing API integrations on frontend**
-  - [ ] Report question API call (UI exists, API stub)
-  - [ ] Edit/delete contribution API calls
-  - [ ] Save preferences API call
-  - [ ] Profile setup save API call
-  - [ ] Remove question from collection API call
-- [ ] **A4. Create Dockerfile + docker-compose** - For backend (Django + Redis + PostgreSQL + Celery)
-- [ ] **A5. Configure app.json for production** - Bundle IDs, version, production API URL
-- [ ] **A6. Environment variables** - Create proper .env for backend with real secrets
-- [ ] **A7. Database** - Test with PostgreSQL instead of SQLite
-- [ ] **A8. Fix ErrorBoundary** - Currently placeholder logic in frontend
+- [x] **A1. Initialize git repo at project root** - Monorepo with both backend and frontend
+- [x] **A2. Wire Google OAuth on frontend** - expo-auth-session + expo-crypto integrated in login.tsx
+- [x] **A3. Complete missing API integrations on frontend**
+  - [x] Report question API call (wired reportQuestion, fixed reason mismatch WRONG_EXPLANATION->TYPO)
+  - [x] Edit/delete contribution API calls (wired updateQuestion + deleteQuestion)
+  - [x] Save preferences API call (backend: updateUserProfile, local: settingsStore)
+  - [x] Profile setup save API call (wired updateUserProfile with target_branch/sub_branch)
+  - [x] Remove question from collection API call (wired removeQuestionsFromCollection)
+- [x] **A4. Create Dockerfile + docker-compose** - PostgreSQL 16, Redis 7, Django, Celery worker+beat
+- [x] **A5. Configure app.json for production** - Bundle IDs, Google OAuth extra, EAS project ID
+- [x] **A6. Environment variables** - Fixed .env.sample (postgres URL, Google env var names), fixed production.py, wsgi.py, Procfile
+- [x] **A7. Database** - Uncommented psycopg2-binary in pyproject.toml
+- [x] **A8. Fix ErrorBoundary** - Rewritten as proper React class component with fallback UI
 
 ### Phase B: Production Hardening (Should-Have)
 
@@ -120,6 +120,21 @@
 - Created this production tracker
 - **Finding:** Project is substantially real, not just scaffolded. Backend is production-ready with minor gaps. Frontend needs API integration work and store config.
 
+### Session 2 - Feb 9, 2026 - Phase A Complete
+- Completed all 8 Phase A items (12 tasks total)
+- **A8:** Rewrote ErrorBoundary as class component with getDerivedStateFromError + componentDidCatch + fallback UI
+- **A3a:** Wired reportQuestion API, fixed report reason mismatch (WRONG_EXPLANATION -> TYPO)
+- **A3d:** Wired profile-setup save with updateUserProfile (target_branch/sub_branch)
+- **A3c:** Extended settingsStore with notification/study prefs, wired preferences.tsx save (backend language + local prefs)
+- **A3b:** Wired edit/delete contributions with updateQuestion/deleteQuestion API calls
+- **A3e:** Wired remove from collection with removeQuestionsFromCollection
+- **A5:** Added bundleIdentifier, package, extra (Google OAuth client IDs + EAS project ID) to app.json
+- **A2:** Installed expo-auth-session + expo-crypto, wired Google OAuth flow in login.tsx
+- **A6:** Fixed 5 config bugs: .env.sample DB URL, production.py Google env vars, wsgi.py default, Procfile paths
+- **A7:** Uncommented psycopg2-binary in pyproject.toml
+- **A4:** Created Dockerfile (Python 3.13-slim + uv), .dockerignore, docker-compose.yml (db, redis, web, celery-worker, celery-beat)
+- **A1:** Removed sub-repo .git dirs, created root .gitignore, initialized monorepo with initial commit
+
 ---
 
 ## Key Files Reference
@@ -147,7 +162,7 @@
 1. Only 1 database migration file (everything in 0001_initial.py)
 2. Manual i18n (EN/NP hardcoded) - react-i18next is in package.json but not configured
 3. 2 Celery tasks are `pass` stubs (weekly email, streak notifications)
-4. ErrorBoundary component is placeholder
-5. No Docker containerization
+4. ~~ErrorBoundary component is placeholder~~ - Fixed in Session 2
+5. ~~No Docker containerization~~ - Added in Session 2
 6. Frontend has 0 automated tests
 7. WebSocket consumers exist but aren't connected to frontend
