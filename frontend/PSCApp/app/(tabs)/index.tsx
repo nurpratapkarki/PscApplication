@@ -4,6 +4,7 @@ import { Card, Text, Button, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/useApi';
 import { UserStatistics } from '../../types/user.types';
 import { Colors } from '../../constants/colors';
@@ -11,32 +12,21 @@ import { Spacing, BorderRadius } from '../../constants/typography';
 
 interface QuickAction {
   id: string;
-  title: string;
-  titleNp: string;
+  titleKey: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   color: string;
   route: string;
 }
 
 const quickActions: QuickAction[] = [
-  { id: '1', title: 'Practice', titleNp: 'अभ्यास', icon: 'book-open-variant', color: Colors.primary, route: '/practice/categories' },
-  { id: '2', title: 'Mock Test', titleNp: 'परीक्षा', icon: 'clipboard-text-clock', color: Colors.accent, route: '/(tabs)/tests' },
-  { id: '3', title: 'Contribute', titleNp: 'योगदान', icon: 'plus-circle', color: Colors.secondary, route: '/contribute' },
-  { id: '4', title: 'Leaderboard', titleNp: 'लिडरबोर्ड', icon: 'trophy', color: Colors.warning, route: '/(tabs)/leaderboard' },
+  { id: '1', titleKey: 'home.practice', icon: 'book-open-variant', color: Colors.primary, route: '/practice/categories' },
+  { id: '2', titleKey: 'home.mockTest', icon: 'clipboard-text-clock', color: Colors.accent, route: '/(tabs)/tests' },
+  { id: '3', titleKey: 'home.contribute', icon: 'plus-circle', color: Colors.secondary, route: '/contribute' },
+  { id: '4', titleKey: 'home.leaderboard', icon: 'trophy', color: Colors.warning, route: '/(tabs)/leaderboard' },
 ];
 
-export default function HomeScreen() {
-  const router = useRouter();
-  const { data: stats, status, refetch } = useApi<UserStatistics>('/api/statistics/me/');
-  const [refreshing, setRefreshing] = React.useState(false);
-
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  }, [refetch]);
-
-  const StatCard = ({ icon, value, label, color }: { icon: string; value: string | number; label: string; color: string }) => (
+function StatCard({ icon, value, label, color }: { icon: string; value: string | number; label: string; color: string }) {
+  return (
     <View style={styles.statCard}>
       <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
         <MaterialCommunityIcons name={icon as any} size={24} color={color} />
@@ -45,6 +35,20 @@ export default function HomeScreen() {
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
+}
+const MemoStatCard = React.memo(StatCard);
+
+export default function HomeScreen() {
+  const router = useRouter();
+  const { t } = useTranslation();
+  const { data: stats, status, refetch } = useApi<UserStatistics>('/api/statistics/me/');
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -56,8 +60,8 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>नमस्ते! 👋</Text>
-            <Text style={styles.welcomeText}>Ready to learn today?</Text>
+            <Text style={styles.greeting}>{t('home.greeting')}</Text>
+            <Text style={styles.welcomeText}>{t('home.welcomeText')}</Text>
           </View>
           <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.notificationBtn}>
             <MaterialCommunityIcons name="bell-outline" size={24} color={Colors.textPrimary} />
@@ -69,34 +73,33 @@ export default function HomeScreen() {
         <Card style={styles.statsCard}>
           <Card.Content>
             <View style={styles.statsHeader}>
-              <Text style={styles.sectionTitle}>Your Progress</Text>
+              <Text style={styles.sectionTitle}>{t('home.yourProgress')}</Text>
               <TouchableOpacity onPress={() => router.push('/(tabs)/analytics')}>
-                <Text style={styles.viewAllText}>View Details →</Text>
+                <Text style={styles.viewAllText}>{t('home.viewDetails')}</Text>
               </TouchableOpacity>
             </View>
             {status === 'loading' ? (
               <ActivityIndicator size="small" color={Colors.primary} style={styles.loader} />
             ) : (
               <View style={styles.statsGrid}>
-                <StatCard icon="fire" value={stats?.study_streak_days || 0} label="Day Streak" color={Colors.error} />
-                <StatCard icon="check-circle" value={stats?.questions_answered || 0} label="Answered" color={Colors.success} />
-                <StatCard icon="percent" value={`${stats?.accuracy_percentage?.toFixed(0) || 0}%`} label="Accuracy" color={Colors.primary} />
-                <StatCard icon="trophy" value={stats?.mock_tests_completed || 0} label="Tests" color={Colors.warning} />
+                <MemoStatCard icon="fire" value={stats?.study_streak_days || 0} label={t('home.dayStreak')} color={Colors.error} />
+                <MemoStatCard icon="check-circle" value={stats?.questions_answered || 0} label={t('home.answered')} color={Colors.success} />
+                <MemoStatCard icon="percent" value={`${Number(stats?.accuracy_percentage ?? 0).toFixed(0)}%`} label={t('home.accuracy')} color={Colors.primary} />
+                <MemoStatCard icon="trophy" value={stats?.mock_tests_completed || 0} label={t('home.tests')} color={Colors.warning} />
               </View>
             )}
           </Card.Content>
         </Card>
 
         {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Text style={styles.sectionTitle}>{t('home.quickActions')}</Text>
         <View style={styles.actionsGrid}>
           {quickActions.map((action) => (
             <TouchableOpacity key={action.id} style={styles.actionCard} onPress={() => router.push(action.route as any)} activeOpacity={0.7}>
               <View style={[styles.actionIconContainer, { backgroundColor: action.color }]}>
                 <MaterialCommunityIcons name={action.icon} size={28} color={Colors.white} />
               </View>
-              <Text style={styles.actionTitle}>{action.title}</Text>
-              <Text style={styles.actionTitleNp}>{action.titleNp}</Text>
+              <Text style={styles.actionTitle}>{t(action.titleKey)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -108,11 +111,11 @@ export default function HomeScreen() {
               <MaterialCommunityIcons name="book-clock" size={40} color={Colors.primary} />
             </View>
             <View style={styles.continueCenter}>
-              <Text style={styles.continueTitle}>Continue Learning</Text>
-              <Text style={styles.continueSubtitle}>Pick up where you left off</Text>
+              <Text style={styles.continueTitle}>{t('home.continueLearning')}</Text>
+              <Text style={styles.continueSubtitle}>{t('home.pickUpWhereLeft')}</Text>
             </View>
             <Button mode="contained" compact onPress={() => router.push('/practice/categories')} style={styles.continueButton}>
-              Resume
+              {t('home.resume')}
             </Button>
           </Card.Content>
         </Card>
@@ -122,11 +125,9 @@ export default function HomeScreen() {
           <Card.Content>
             <View style={styles.tipHeader}>
               <MaterialCommunityIcons name="lightbulb-on" size={24} color={Colors.warning} />
-              <Text style={styles.tipTitle}>Daily Tip</Text>
+              <Text style={styles.tipTitle}>{t('home.dailyTip')}</Text>
             </View>
-            <Text style={styles.tipText}>
-              Practice consistently for 30 minutes daily. Small, regular sessions are more effective than long, irregular ones.
-            </Text>
+            <Text style={styles.tipText}>{t('home.dailyTipText')}</Text>
           </Card.Content>
         </Card>
       </ScrollView>
@@ -156,7 +157,6 @@ const styles = StyleSheet.create({
   actionCard: { width: '47%', backgroundColor: Colors.white, borderRadius: BorderRadius.lg, padding: Spacing.base, alignItems: 'center', elevation: 2 },
   actionIconContainer: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
   actionTitle: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
-  actionTitleNp: { fontSize: 12, color: Colors.textSecondary },
   continueCard: { backgroundColor: Colors.primaryLight + '30', borderRadius: BorderRadius.lg, marginBottom: Spacing.lg },
   continueContent: { flexDirection: 'row', alignItems: 'center' },
   continueLeft: { marginRight: Spacing.md },

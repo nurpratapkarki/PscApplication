@@ -38,12 +38,16 @@ export async function googleLogin(token: GoogleLoginRequest): Promise<TokenRespo
 	return response;
 }
 
-// Registration
-export async function register(data: RegistrationRequest): Promise<UserProfile> {
-	return apiRequest<UserProfile>(API_ENDPOINTS.auth.registration, {
+// Registration - dj-rest-auth returns tokens with USE_JWT=True
+export async function register(data: RegistrationRequest): Promise<TokenResponse> {
+	const response = await apiRequest<TokenResponse>(API_ENDPOINTS.auth.registration, {
 		method: "POST",
 		body: data,
 	});
+	if (response.access) {
+		setTokens(response.access, response.refresh);
+	}
+	return response;
 }
 
 // Dev login (for development only)

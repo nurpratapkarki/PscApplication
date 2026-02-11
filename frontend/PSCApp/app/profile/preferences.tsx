@@ -4,6 +4,7 @@ import { Stack, useRouter } from 'expo-router';
 import { Card, Text, Switch, RadioButton, Divider, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
 import { updateUserProfile } from '../../services/api/profile';
@@ -15,6 +16,7 @@ type NotificationFrequency = 'all' | 'important' | 'none';
 
 export default function ProfilePreferencesScreen() {
   const router = useRouter();
+  const { i18n } = useTranslation();
   const settings = useSettingsStore();
 
   // Language preferences
@@ -41,8 +43,9 @@ export default function ProfilePreferencesScreen() {
       const token = getAccessToken();
       await updateUserProfile({ preferred_language: language }, token);
 
-      // Save all preferences locally via Zustand
+      // Save all preferences locally via Zustand + switch i18n language
       settings.setLanguage(language);
+      i18n.changeLanguage(language);
       settings.setStreakReminders(streakReminders);
       settings.setTestReminders(testReminders);
       settings.setContributionUpdates(contributionUpdates);

@@ -25,6 +25,7 @@ dependencies = [
     "dj-rest-auth[with-social]>=5.0.2",
     "django-allauth>=0.57.2",
     "faker>=40.1.0",
+    "django-storages[s3]>=1.14",
 ]
 
 [tool.ruff]

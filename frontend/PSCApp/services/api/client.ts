@@ -49,39 +49,54 @@ export function clearTokens() {
   useAuthStore.getState().clearAuth();
 }
 
-// Token refresh function
+// Token refresh mutex: prevents multiple simultaneous refresh requests
+// which would cause "Given token not valid for any token type" errors
+// when ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION are enabled.
+let refreshPromise: Promise<string | null> | null = null;
+
 async function refreshAccessToken(): Promise<string | null> {
+  // If a refresh is already in progress, reuse that promise
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
   const currentRefreshToken = getRefreshToken();
   if (!currentRefreshToken) {
     return null;
   }
 
-  try {
-    const url = `${API_BASE_URL}${API_ENDPOINTS.auth.tokenRefresh}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ refresh: currentRefreshToken }),
-    });
+  refreshPromise = (async () => {
+    try {
+      const url = `${API_BASE_URL}${API_ENDPOINTS.auth.tokenRefresh}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ refresh: currentRefreshToken }),
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        clearTokens();
+        return null;
+      }
+
+      const data = await response.json();
+      if (data.access) {
+        setTokens(data.access, data.refresh);
+        return data.access;
+      }
+      return null;
+    } catch {
       clearTokens();
       return null;
+    } finally {
+      refreshPromise = null;
     }
+  })();
 
-    const data = await response.json();
-    if (data.access) {
-      setTokens(data.access, data.refresh);
-      return data.access;
-    }
-    return null;
-  } catch {
-    clearTokens();
-    return null;
-  }
+  return refreshPromise;
 }
 
 export async function apiRequest<T>(
@@ -117,11 +132,13 @@ export async function apiRequest<T>(
     method,
     headers: finalHeaders,
     body: requestBody,
-    credentials: "include",
   });
 
-  // Handle token refresh on 401
-  if (response.status === 401 && !token && getRefreshToken()) {
+  // Skip token refresh for auth endpoints (login/registration return their own 401s)
+  const isAuthEndpoint = endpoint.includes("/auth/") || endpoint.includes("/token/");
+
+  // Handle token refresh on 401 (only for authenticated API endpoints)
+  if (response.status === 401 && !token && !isAuthEndpoint && getRefreshToken()) {
     const newToken = await refreshAccessToken();
     if (newToken) {
       finalHeaders.Authorization = `Bearer ${newToken}`;
@@ -129,7 +146,6 @@ export async function apiRequest<T>(
         method,
         headers: finalHeaders,
         body: requestBody,
-        credentials: "include",
       });
     }
   }
@@ -140,6 +156,7 @@ export async function apiRequest<T>(
   if (!response.ok) {
     const message =
       (data && (data as Record<string, unknown>).detail) ||
+      (data && (data as Record<string, unknown>).error) ||
       (data && (data as Record<string, unknown>).message) ||
       `Request failed with status ${response.status}`;
 
@@ -172,7 +189,6 @@ export async function uploadFile<T>(
     method: "POST",
     headers,
     body: formData,
-    credentials: "include",
   });
 
   // Handle token refresh on 401
@@ -184,7 +200,6 @@ export async function uploadFile<T>(
         method: "POST",
         headers,
         body: formData,
-        credentials: "include",
       });
     }
   }
@@ -195,6 +210,7 @@ export async function uploadFile<T>(
   if (!response.ok) {
     const message =
       (data && (data as Record<string, unknown>).detail) ||
+      (data && (data as Record<string, unknown>).error) ||
       (data && (data as Record<string, unknown>).message) ||
       `Upload failed with status ${response.status}`;
 
@@ -227,6 +243,7 @@ export function handleApiError(error: unknown): string {
     const data = error.data as Record<string, unknown> | null;
     if (data) {
       if (data.detail) return String(data.detail);
+      if (data.error) return String(data.error);
       if (data.message) return String(data.message);
       if (data.non_field_errors) {
         return (data.non_field_errors as string[]).join(", ");

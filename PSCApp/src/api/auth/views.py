@@ -28,13 +28,13 @@ class DevLoginView(APIView):
     def post(self, request, *args, **kwargs):
         # We handle logic manually, so APIView is cleaner.
         if not settings.DEBUG:
-            return Response({"error": "Not available in production"}, status=403)
+            return Response({"detail": "Not available in production"}, status=403)
 
         email = request.data.get("email")
         password = request.data.get("password")
 
         if not email:
-            return Response({"error": "Email required"}, status=400)
+            return Response({"detail": "Email required"}, status=400)
 
         from django.contrib.auth import get_user_model, authenticate
 
@@ -48,7 +48,7 @@ class DevLoginView(APIView):
             if password and user.has_usable_password():
                 authenticated_user = authenticate(username=user.username, password=password)
                 if authenticated_user is None:
-                    return Response({"error": "Invalid credentials"}, status=401)
+                    return Response({"detail": "Invalid credentials"}, status=401)
                 user = authenticated_user
             # If no password provided or user doesn't have password, just use the found user (dev mode)
         else:
@@ -93,7 +93,7 @@ class RegularLoginView(APIView):
         password = request.data.get("password")
 
         if not email or not password:
-            return Response({"error": "Email/username and password are required"}, status=400)
+            return Response({"detail": "Email/username and password are required"}, status=400)
 
         from django.contrib.auth import get_user_model, authenticate
 
@@ -103,18 +103,18 @@ class RegularLoginView(APIView):
         user = User.objects.filter(username=email).first() or User.objects.filter(email=email).first()
 
         if not user:
-            return Response({"error": "No account found with this email/username"}, status=404)
+            return Response({"detail": "No account found with this email/username"}, status=404)
 
         if not user.has_usable_password():
             return Response(
-                {"error": "This account uses Google Sign-In. Please login with Google."},
+                {"detail": "This account uses Google Sign-In. Please login with Google."},
                 status=400
             )
 
         # Authenticate with password
         authenticated_user = authenticate(username=user.username, password=password)
         if authenticated_user is None:
-            return Response({"error": "Invalid password"}, status=401)
+            return Response({"detail": "Invalid password"}, status=401)
 
         from dj_rest_auth.utils import jwt_encode
 

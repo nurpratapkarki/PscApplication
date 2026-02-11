@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useApi } from '../../hooks/useApi';
-import { User } from '../../types/auth.types';
+import { UserProfile } from '../../types/user.types';
 import { Branch } from '../../types/category.types';
 import { updateUserProfile } from '../../services/api/profile';
 import { useAuthStore } from '../../store/authStore';
@@ -15,21 +15,21 @@ import { Spacing, BorderRadius } from '../../constants/typography';
 
 export default function EditProfileScreen() {
   const router = useRouter();
-  const { data: user, status: userStatus, refetch: refetchUser } = useApi<User>('/api/auth/user/');
+  const { data: user, status: userStatus, refetch: refetchUser } = useApi<UserProfile>('/api/auth/user/');
   const { data: branches } = useApi<Branch[]>('/api/branches/');
   const getAccessToken = useAuthStore((state) => state.getAccessToken);
 
-  const [fullName, setFullName] = useState(user?.profile?.full_name || '');
-  const [phone, setPhone] = useState(user?.profile?.phone_number || '');
-  const [selectedBranch, setSelectedBranch] = useState<number | null>(user?.profile?.branch || null);
+  const [fullName, setFullName] = useState(user?.full_name || '');
+  const [phone, setPhone] = useState(user?.phone_number || '');
+  const [selectedBranch, setSelectedBranch] = useState<number | null>(user?.target_branch || null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   React.useEffect(() => {
     if (user) {
-      setFullName(user.profile?.full_name || '');
-      setPhone(user.profile?.phone_number || '');
-      setSelectedBranch(user.profile?.branch || null);
+      setFullName(user.full_name || '');
+      setPhone(user.phone_number || '');
+      setSelectedBranch(user.target_branch || null);
     }
   }, [user]);
 
@@ -70,13 +70,13 @@ export default function EditProfileScreen() {
       const formData = new FormData();
 
       // Add changed fields
-      if (fullName !== user?.profile?.full_name) {
+      if (fullName !== user?.full_name) {
         formData.append('full_name', fullName.trim());
       }
-      if (phone !== user?.profile?.phone_number) {
+      if (phone !== user?.phone_number) {
         formData.append('phone_number', phone.trim());
       }
-      if (selectedBranch !== user?.profile?.branch && selectedBranch !== null) {
+      if (selectedBranch !== user?.target_branch && selectedBranch !== null) {
         formData.append('target_branch', String(selectedBranch));
       }
 
@@ -156,7 +156,7 @@ export default function EditProfileScreen() {
                 <Avatar.Image 
                   size={100} 
                   source={{ 
-                    uri: selectedImage || user?.profile?.profile_picture || `https://i.pravatar.cc/150?u=${user?.email}` 
+                    uri: selectedImage || user?.profile_picture || `https://i.pravatar.cc/150?u=${user?.email}`
                   }} 
                 />
                 <View style={styles.changeAvatarBtn}>

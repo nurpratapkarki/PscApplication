@@ -8,6 +8,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     level = serializers.IntegerField(read_only=True)
     experience_points = serializers.IntegerField(read_only=True)
     total_contributions = serializers.IntegerField(read_only=True)
+    branch_name = serializers.SerializerMethodField()
+    sub_branch_name = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
@@ -23,9 +25,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "experience_points",
             "level",
             "total_contributions",
-            "profile_picture",
             "is_active",
             "date_joined",
+            "branch_name",
+            "sub_branch_name",
         ]
         read_only_fields = [
             "id",
@@ -35,3 +38,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "total_contributions",
             "date_joined",
         ]
+
+    def get_branch_name(self, obj):
+        if obj.target_branch:
+            return obj.target_branch.name_en
+        return None
+
+    def get_sub_branch_name(self, obj):
+        if obj.target_sub_branch:
+            return obj.target_sub_branch.name_en
+        return None

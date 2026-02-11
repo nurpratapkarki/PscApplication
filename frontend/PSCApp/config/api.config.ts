@@ -40,7 +40,7 @@ export const API_ENDPOINTS = {
 	attempts: {
 	  list: "/api/attempts/",
 	  start: "/api/attempts/start/",
-	  myAttempts: "/api/my-attempts/",
+	  myAttempts: "/api/attempts/",
 	  detail: (id: number | string) => `/api/attempts/${id}/`,
 	  submit: (id: number | string) => `/api/attempts/${id}/submit/`,
 	  results: (id: number | string) => `/api/attempts/${id}/results/`,
@@ -51,18 +51,18 @@ export const API_ENDPOINTS = {
 	},
 	analytics: {
 	  contributions: "/api/contributions/",
-	  myContributions: "/api/my-contributions/",
+	  myContributions: "/api/contributions/",
 	  dailyActivity: "/api/daily-activity/",
 	},
 	stats: {
 	  platform: "/api/platform-stats/",
-	  platformStatistics: "/api/platform-statistics/",
 	  statistics: "/api/statistics/",
 	  statisticsMe: "/api/statistics/me/",
 	  progress: "/api/progress/",
 	  collections: "/api/collections/",
 	  collectionDetail: (id: number | string) => `/api/collections/${id}/`,
 	  leaderboard: "/api/leaderboard/",
+	  rankings: "/api/rankings/",
 	},
 	notifications: {
 	  list: "/api/notifications/",

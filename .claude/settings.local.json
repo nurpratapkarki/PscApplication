@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(uv run:*)",
+      "Bash(npm install:*)",
+      "Bash(npx expo lint:*)",
+      "Bash(python -m pip:*)",
+      "Bash(git log:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

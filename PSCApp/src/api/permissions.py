@@ -22,3 +22,25 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
         if hasattr(obj, "created_by"):
             return obj.created_by == request.user
         return False
+
+
+class IsAdminOrReadOnly(permissions.BasePermission):
+    """
+    Allows read access to anyone, but write access only to admin users.
+    Use for system configuration endpoints (AppSettings, TimeConfiguration).
+    """
+
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user and request.user.is_staff
+
+
+class CanModerate(permissions.BasePermission):
+    """
+    Permission for moderation dashboard operations.
+    Requires the user to be staff (is_staff=True).
+    """
+
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.is_staff

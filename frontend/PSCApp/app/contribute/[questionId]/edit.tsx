@@ -99,6 +99,7 @@ export default function EditContributionScreen() {
           answers: answers.map((a, i) => ({
             id: a.id,
             answer_text_en: a.text,
+            answer_text_np: a.text,
             is_correct: a.isCorrect,
             display_order: i,
           })),

@@ -17,7 +17,7 @@ const formatNumber = (num: number) => {
 
 export default function CommunityStatsScreen() {
   const router = useRouter();
-  const { data: stats, status } = useApi<PlatformStatistics>('/api/platform-statistics/');
+  const { data: stats, status } = useApi<PlatformStatistics>('/api/platform-stats/');
 
   const StatCard = ({ icon, value, label, color, subtitle }: { icon: string; value: string | number; label: string; color: string; subtitle?: string }) => (
     <Card style={styles.statCard}>

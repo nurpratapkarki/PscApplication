@@ -30,6 +30,10 @@ class UserProgressSerializer(serializers.ModelSerializer):
 
 class UserStatisticsSerializer(serializers.ModelSerializer):
     badges_earned = serializers.JSONField(read_only=True)
+    accuracy_percentage = serializers.SerializerMethodField()
+    total_correct_answers = serializers.IntegerField(
+        source="correct_answers", read_only=True
+    )
 
     class Meta:
         model = UserStatistics
@@ -38,6 +42,7 @@ class UserStatisticsSerializer(serializers.ModelSerializer):
             "questions_made_public",
             "questions_answered",
             "correct_answers",
+            "total_correct_answers",
             "mock_tests_completed",
             "study_streak_days",
             "longest_streak",
@@ -45,6 +50,7 @@ class UserStatisticsSerializer(serializers.ModelSerializer):
             "badges_earned",
             "contribution_rank",
             "accuracy_rank",
+            "accuracy_percentage",
             "last_updated",
         ]
         read_only_fields = [
@@ -52,6 +58,7 @@ class UserStatisticsSerializer(serializers.ModelSerializer):
             "questions_made_public",
             "questions_answered",
             "correct_answers",
+            "total_correct_answers",
             "mock_tests_completed",
             "study_streak_days",
             "longest_streak",
@@ -59,8 +66,12 @@ class UserStatisticsSerializer(serializers.ModelSerializer):
             "badges_earned",
             "contribution_rank",
             "accuracy_rank",
+            "accuracy_percentage",
             "last_updated",
         ]
+
+    def get_accuracy_percentage(self, obj):
+        return obj.get_accuracy_percentage()
 
 
 class StudyCollectionSerializer(serializers.ModelSerializer):

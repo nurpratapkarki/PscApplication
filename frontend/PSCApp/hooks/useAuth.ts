@@ -9,11 +9,13 @@ import {
   logout as apiLogout,
   devLogin as apiDevLogin,
   regularLogin as apiRegularLogin,
+  register as apiRegister,
 } from '../services/api/auth';
 import { getCurrentUserProfile } from '../services/api/profile';
 import type {
   LoginRequest,
   GoogleLoginRequest,
+  RegistrationRequest,
   TokenResponse
 } from '../types/auth.types';
 
@@ -117,6 +119,23 @@ export function useAuth() {
     }
   }, [setAuth, setLoading]);
 
+  // Register and auto-login
+  const register = useCallback(async (data: RegistrationRequest) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiRegister(data);
+      const profile = await getCurrentUserProfile(response.access);
+      setAuth(profile, response);
+      return response;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed';
+      setError(errorMessage);
+      setLoading(false);
+      throw err;
+    }
+  }, [setAuth, setLoading]);
+
   // Logout
   const logout = useCallback(async () => {
     setLoading(true);
@@ -150,6 +169,7 @@ export function useAuth() {
     googleLogin,
     devLogin,
     regularLogin,
+    register,
     logout,
     refreshUser,
     checkAuth,

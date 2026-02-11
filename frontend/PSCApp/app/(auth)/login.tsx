@@ -29,7 +29,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: googleOAuthConfig?.expoClientId,
+    clientId: googleOAuthConfig?.expoClientId,
     iosClientId: googleOAuthConfig?.iosClientId,
     androidClientId: googleOAuthConfig?.androidClientId,
     webClientId: googleOAuthConfig?.webClientId,

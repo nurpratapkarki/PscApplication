@@ -120,13 +120,19 @@ class UserAnswerViewSet(viewsets.ModelViewSet):
             user_attempt=attempt, question=question
         ).first()
         if existing:
-            # Update instead of create if attempting again (or block?)
-            # Usually update is handled via PUT/PATCH, but create might imply "submit answer"
-            # If unique constraint exists, it will fail.
-            # UserAnswer has unique_together [user_attempt, question]
-            # So we should block or handle update here?
-            # DRF CreateModelMixin doesn't handle update.
-            # Client should use PATCH if exists, or we handle logic.
-            # Simplified: Assume client manages ID or we catch error.
-            pass
+            # Update the existing answer instead of creating a duplicate
+            existing.selected_answer = serializer.validated_data.get("selected_answer")
+            existing.time_taken_seconds = serializer.validated_data.get(
+                "time_taken_seconds", existing.time_taken_seconds
+            )
+            existing.is_skipped = serializer.validated_data.get(
+                "is_skipped", False
+            )
+            existing.is_marked_for_review = serializer.validated_data.get(
+                "is_marked_for_review", existing.is_marked_for_review
+            )
+            existing.save()
+            # Replace serializer.instance so the response returns the updated object
+            serializer.instance = existing
+            return
         serializer.save()

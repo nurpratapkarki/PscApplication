@@ -22,6 +22,7 @@ def create_user_profile(sender, instance, created, **kwargs):
     Also handles linking existing profiles when a Google user logs in with an email
     that already exists from a regular signup.
     """
+    
     if created:
         # First, check if a profile already exists with this email (from a previous signup)
         existing_profile = UserProfile.objects.filter(email=instance.email).first()
@@ -109,11 +110,11 @@ def handle_user_answer_save(sender, instance, created, **kwargs):
     )
     if created:
         user_stats.questions_answered += 1
+        if instance.is_correct:
+            user_stats.correct_answers += 1
 
-    if instance.is_correct:
-        # Again, handling simple increment. ideally need to know if it flipped from wrong to right
-        user_stats.correct_answers += 1
-
+    # Update daily streak on any activity
+    user_stats.update_streak()
     user_stats.check_badge_eligibility()
     user_stats.save()
 
@@ -171,6 +172,7 @@ def handle_user_attempt_save(sender, instance, created, **kwargs):
         user_stats, _ = UserStatistics.objects.get_or_create(user=instance.user)
         if instance.mock_test:
             user_stats.mock_tests_completed += 1
+        user_stats.update_streak()
         user_stats.check_badge_eligibility()
         user_stats.save()
 
@@ -183,15 +185,32 @@ def handle_user_attempt_save(sender, instance, created, **kwargs):
 def handle_question_save(sender, instance, created, **kwargs):
     """
     Update PlatformStats when question becomes public.
+    Notify contributor when their question is created.
     """
+    from django.db.models import F
+    from src.models.platform_stats import PlatformStats
+
     if instance.status == "PUBLIC":
-        # This is a broad hammer, likely we want to increment a counter rather than recount everything.
-        # For low traffic, recounting is fine.
-        # PlatformStats.refresh_stats() might be expensive.
-        # Better to schedule it or increment a specific field if PlatformStats has one.
-        # The TODO said "Update PlatformStats".
-        pass
+        PlatformStats.objects.filter(id=1).update(
+            total_questions_public=F("total_questions_public") + 1
+        )
 
     if created and instance.created_by:
-        # Notify contributor if auto-published?
-        pass
+        # Increment questions_contributed counter
+        user_stats, _ = UserStatistics.objects.get_or_create(
+            user=instance.created_by
+        )
+        user_stats.questions_contributed += 1
+        user_stats.update_streak()
+        user_stats.check_badge_eligibility()
+        user_stats.save()
+
+        Notification.objects.create(
+            user=instance.created_by,
+            notification_type="GENERAL",
+            title_en="Question Submitted",
+            title_np="प्रश्न पेश गरियो",
+            message_en=f"Your question '{instance.question_text_en[:50]}' has been submitted for review.",
+            message_np=f"तपाईंको प्रश्न '{instance.question_text_en[:50]}' समीक्षाको लागि पेश गरिएको छ।",
+            related_question=instance,
+        )

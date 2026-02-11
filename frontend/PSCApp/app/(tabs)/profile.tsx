@@ -5,8 +5,7 @@ import { Avatar, Card, Text, ActivityIndicator, Divider } from 'react-native-pap
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApi } from '../../hooks/useApi';
-import { User } from '../../types/auth.types';
-import { UserStatistics } from '../../types/user.types';
+import { UserProfile, UserStatistics } from '../../types/user.types';
 import { Colors } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
 import { useAuth } from '../../hooks/useAuth';
@@ -23,7 +22,7 @@ interface MenuItem {
 export default function ProfileScreen() {
   const router = useRouter();
   const { logout } = useAuth();
-  const { data: user, status: userStatus } = useApi<User>('/api/auth/user/');
+  const { data: user, status: userStatus } = useApi<UserProfile>('/api/auth/user/');
   const { data: stats, status: statsStatus } = useApi<UserStatistics>('/api/statistics/me/');
 
   const isLoading = userStatus === 'loading' || statsStatus === 'loading';
@@ -73,17 +72,17 @@ export default function ProfileScreen() {
         {/* Profile Header */}
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            <Avatar.Image size={90} source={{ uri: user?.profile?.profile_picture || `https://i.pravatar.cc/150?u=${user?.email}` }} />
+            <Avatar.Image size={90} source={{ uri: user?.profile_picture || `https://i.pravatar.cc/150?u=${user?.email}` }} />
             <TouchableOpacity style={styles.editAvatarBtn}>
               <MaterialCommunityIcons name="camera" size={16} color={Colors.white} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.userName}>{user?.profile?.full_name || user?.username || 'User'}</Text>
+          <Text style={styles.userName}>{user?.full_name || 'User'}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
-          {user?.profile?.branch_name && (
+          {user?.branch_name && (
             <View style={styles.branchBadge}>
               <MaterialCommunityIcons name="school" size={14} color={Colors.primary} />
-              <Text style={styles.branchText}>{user.profile.branch_name}</Text>
+              <Text style={styles.branchText}>{user.branch_name}</Text>
             </View>
           )}
         </View>
@@ -116,10 +115,10 @@ export default function ProfileScreen() {
         {/* Menu Items */}
         <Card style={styles.menuCard}>
           {menuItems.map((item, index) => (
-            <React.Fragment key={item.title}>
+            <View key={item.title}>
               <MenuRow item={item} />
               {index < menuItems.length - 1 && <Divider style={styles.divider} />}
-            </React.Fragment>
+            </View>
           ))}
         </Card>
 

@@ -12,7 +12,8 @@ from src.api.platform_stats.views import PlatformStatsViewSet
 from src.api.question_answer.views import (QuestionReportViewSet,
                                            QuestionViewSet)
 from src.api.time_config.views import TimeConfigurationViewSet
-from src.api.user_stats.views import (LeaderBoardViewSet, StudyCollectionViewSet,
+from src.api.user_stats.views import (LeaderBoardViewSet, RankingsView,
+                                      StudyCollectionViewSet,
                                       UserProgressViewSet, UserStatisticsViewSet)
 
 router = DefaultRouter()
@@ -50,5 +51,6 @@ router.register(r"settings", AppSettingsViewSet)
 router.register(r"time-configs", TimeConfigurationViewSet)
 
 urlpatterns = [
+    path("rankings/", RankingsView.as_view(), name="rankings"),
     path("", include(router.urls)),
 ]

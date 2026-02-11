@@ -41,7 +41,11 @@ const TestResultsScreen = () => {
 
   const mockTestObj = typeof attempt.mock_test === 'object' ? (attempt.mock_test as MockTestSummary) : null;
   const passPercentage = mockTestObj?.pass_percentage ?? 50;
-  const isPassed = (attempt.percentage || 0) >= passPercentage;
+  // DRF serializes DecimalField as strings — parse to number
+  const pct = Number(attempt.percentage ?? 0);
+  const scoreObtained = Number(attempt.score_obtained ?? 0);
+  const totalScore = Number(attempt.total_score ?? 0);
+  const isPassed = pct >= passPercentage;
   const userAnswers = attempt.user_answers || [];
   const correctCount = userAnswers.filter((a) => a.is_correct).length;
   const incorrectCount = userAnswers.filter((a) => !a.is_correct && a.selected_answer_text).length;
@@ -66,18 +70,18 @@ const TestResultsScreen = () => {
         <Card style={styles.scoreCard}>
           <Card.Content>
             <View style={styles.scoreCircle}>
-              <Text style={styles.scoreValue}>{attempt.percentage?.toFixed(0)}%</Text>
+              <Text style={styles.scoreValue}>{Math.round(pct)}%</Text>
               <Text style={styles.scoreLabel}>Score</Text>
             </View>
-            <ProgressBar progress={(attempt.percentage || 0) / 100} color={isPassed ? Colors.success : Colors.error} style={styles.progressBar} />
+            <ProgressBar progress={pct / 100} color={isPassed ? Colors.success : Colors.error} style={styles.progressBar} />
             <View style={styles.scoreDetails}>
               <View style={styles.scoreDetailItem}>
-                <Text style={styles.scoreDetailValue}>{attempt.score_obtained}</Text>
+                <Text style={styles.scoreDetailValue}>{scoreObtained}</Text>
                 <Text style={styles.scoreDetailLabel}>Obtained</Text>
               </View>
               <View style={styles.scoreDetailDivider} />
               <View style={styles.scoreDetailItem}>
-                <Text style={styles.scoreDetailValue}>{attempt.total_score}</Text>
+                <Text style={styles.scoreDetailValue}>{totalScore}</Text>
                 <Text style={styles.scoreDetailLabel}>Total</Text>
               </View>
               <View style={styles.scoreDetailDivider} />

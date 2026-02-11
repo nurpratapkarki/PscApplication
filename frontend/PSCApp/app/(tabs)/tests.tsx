@@ -9,7 +9,7 @@ import { MockTest } from '../../types/test.types';
 import { Colors } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
 
-const TestCard = ({ test, onPress }: { test: MockTest; onPress: () => void }) => (
+const TestCard = React.memo(function TestCard({ test, onPress }: { test: MockTest; onPress: () => void }) { return (
   <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
     <Card style={styles.testCard}>
       <Card.Content style={styles.testCardContent}>
@@ -34,7 +34,7 @@ const TestCard = ({ test, onPress }: { test: MockTest; onPress: () => void }) =>
       </Card.Content>
     </Card>
   </TouchableOpacity>
-);
+); });
 
 export default function TestsScreen() {
   const router = useRouter();

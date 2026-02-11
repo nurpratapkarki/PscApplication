@@ -53,9 +53,6 @@ class UserProfile(models.Model):
         default=0, help_text="Total questions contributed by user"
     )
     total_questions_attempted = models.IntegerField(default=0)
-    profile_picture = models.ImageField(
-        upload_to="profile_pictures/", null=True, blank=True
-    )
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(auto_now=True)

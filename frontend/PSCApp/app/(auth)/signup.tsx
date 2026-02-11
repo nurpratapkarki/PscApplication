@@ -6,10 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
-import { register } from '../../services/api/auth';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const { register, isLoading: authLoading, error: authError } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,9 +46,9 @@ export default function SignUpScreen() {
         password2: confirmPassword,
         full_name: fullName.trim() || undefined,
       });
-      
-      // Registration successful - redirect to login
-      router.replace('/(auth)/login');
+
+      // Registration successful + auto-logged in - go to profile setup or home
+      router.replace('/(auth)/profile-setup');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       setError(errorMessage);

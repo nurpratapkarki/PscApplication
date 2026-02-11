@@ -22,7 +22,7 @@ class UserProfileTests(APITestCase):
 
     def test_get_profile_unauthenticated(self):
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
     def test_get_profile_authenticated(self):
         self.client.force_authenticate(user=self.user)

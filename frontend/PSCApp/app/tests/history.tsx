@@ -11,7 +11,9 @@ import { Spacing, BorderRadius } from '../../constants/typography';
 
 const AttemptCard = ({ attempt, onPress }: { attempt: UserAttempt; onPress: () => void }) => {
   const attemptedDate = new Date(attempt.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const isPassed = (attempt.percentage || 0) >= 50;
+  // DRF serializes DecimalField as strings — parse to number
+  const pct = Number(attempt.percentage ?? 0);
+  const isPassed = pct >= 50;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
@@ -23,9 +25,9 @@ const AttemptCard = ({ attempt, onPress }: { attempt: UserAttempt; onPress: () =
             <Text style={styles.attemptDate}>{attemptedDate}</Text>
             <View style={styles.attemptStats}>
               <Chip compact style={[styles.scoreChip, { backgroundColor: isPassed ? Colors.successLight : Colors.errorLight }]} textStyle={{ color: isPassed ? Colors.success : Colors.error }}>
-                {attempt.percentage?.toFixed(0)}%
+                {pct.toFixed(0)}%
               </Chip>
-              <Text style={styles.attemptScore}>{attempt.score_obtained}/{attempt.total_score} pts</Text>
+              <Text style={styles.attemptScore}>{Number(attempt.score_obtained ?? 0)}/{Number(attempt.total_score ?? 0)} pts</Text>
             </View>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={24} color={Colors.textTertiary} />

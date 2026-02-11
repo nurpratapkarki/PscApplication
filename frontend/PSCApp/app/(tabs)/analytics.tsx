@@ -14,7 +14,7 @@ interface CategoryPerformance {
   category_name: string;
   questions_attempted: number;
   correct_answers: number;
-  accuracy: number;
+  accuracy_percentage: number;
 }
 
 export default function AnalyticsScreen() {
@@ -29,20 +29,24 @@ export default function AnalyticsScreen() {
     </View>
   );
 
-  const CategoryRow = ({ item }: { item: CategoryPerformance }) => (
-    <View style={styles.categoryRow}>
-      <View style={styles.categoryInfo}>
-        <Text style={styles.categoryName}>{item.category_name}</Text>
-        <Text style={styles.categorySubtext}>{item.questions_attempted} questions • {item.correct_answers} correct</Text>
+  const CategoryRow = ({ item }: { item: CategoryPerformance }) => {
+    // DRF serializes DecimalField as strings — parse to number
+    const acc = Number(item.accuracy_percentage ?? 0);
+    return (
+      <View style={styles.categoryRow}>
+        <View style={styles.categoryInfo}>
+          <Text style={styles.categoryName}>{item.category_name}</Text>
+          <Text style={styles.categorySubtext}>{item.questions_attempted} questions • {item.correct_answers} correct</Text>
+        </View>
+        <View style={styles.categoryProgress}>
+          <Text style={[styles.accuracyText, { color: acc >= 70 ? Colors.success : acc >= 50 ? Colors.warning : Colors.error }]}>
+            {acc.toFixed(0)}%
+          </Text>
+          <ProgressBar progress={acc / 100} color={acc >= 70 ? Colors.success : acc >= 50 ? Colors.warning : Colors.error} style={styles.progressBar} />
+        </View>
       </View>
-      <View style={styles.categoryProgress}>
-        <Text style={[styles.accuracyText, { color: item.accuracy >= 70 ? Colors.success : item.accuracy >= 50 ? Colors.warning : Colors.error }]}>
-          {item.accuracy.toFixed(0)}%
-        </Text>
-        <ProgressBar progress={item.accuracy / 100} color={item.accuracy >= 70 ? Colors.success : item.accuracy >= 50 ? Colors.warning : Colors.error} style={styles.progressBar} />
-      </View>
-    </View>
-  );
+    );
+  };
 
   if (status === 'loading') {
     return (
@@ -77,7 +81,7 @@ export default function AnalyticsScreen() {
         <Card style={styles.accuracyCard}>
           <Card.Content style={styles.accuracyContent}>
             <View style={styles.accuracyCircle}>
-              <Text style={styles.accuracyValue}>{stats?.accuracy_percentage?.toFixed(0) || 0}%</Text>
+              <Text style={styles.accuracyValue}>{Number(stats?.accuracy_percentage ?? 0).toFixed(0)}%</Text>
               <Text style={styles.accuracyLabel}>Accuracy</Text>
             </View>
             <View style={styles.accuracyDetails}>

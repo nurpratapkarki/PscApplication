@@ -2,6 +2,9 @@ import { Stack } from "expo-router";
 import { PaperProvider, MD3LightTheme } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { I18nextProvider } from "react-i18next";
+import i18n from "../i18n";
+import { useSettingsStore } from "../store/settingsStore";
 import { Colors } from "../constants/colors";
 
 // Custom theme for the app - Professional PSC Exam Prep Theme
@@ -27,7 +30,14 @@ const theme = {
 };
 
 export default function RootLayout() {
+  // Sync i18n language with stored preference
+  const language = useSettingsStore((state) => state.language);
+  if (i18n.language !== language) {
+    i18n.changeLanguage(language);
+  }
+
   return (
+    <I18nextProvider i18n={i18n}>
     <SafeAreaProvider>
       <PaperProvider theme={theme}>
         <StatusBar style="dark" />
@@ -60,5 +70,6 @@ export default function RootLayout() {
         </Stack>
       </PaperProvider>
     </SafeAreaProvider>
+    </I18nextProvider>
   );
 }

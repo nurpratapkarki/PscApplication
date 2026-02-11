@@ -13,6 +13,8 @@ import { useAuthStore } from '../../store/authStore';
 
 type NotificationCategory = 'ALL' | 'UNREAD' | 'SYSTEM' | 'ACHIEVEMENT';
 
+const NotificationDivider = () => <Divider style={{ marginLeft: 76 }} />;
+
 const getNotificationIcon = (type: string): { icon: string; color: string } => {
   switch (type) {
     case 'CONTRIBUTION_APPROVED':
@@ -263,7 +265,7 @@ export default function NotificationsScreen() {
               colors={[Colors.primary]} 
             />
           }
-          ItemSeparatorComponent={() => <Divider style={styles.divider} />}
+          ItemSeparatorComponent={NotificationDivider}
           renderItem={({ item }) => (
             <NotificationItem 
               notification={item} 
