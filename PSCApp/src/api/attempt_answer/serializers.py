@@ -4,13 +4,20 @@ from src.models.attempt_answer import UserAnswer, UserAttempt
 
 
 class UserAnswerSerializer(serializers.ModelSerializer):
+    question_text = serializers.SerializerMethodField()
+    selected_answer_text = serializers.SerializerMethodField()
+    correct_answer_text = serializers.SerializerMethodField()
+
     class Meta:
         model = UserAnswer
         fields = [
             "id",
             "user_attempt",
             "question",
+            "question_text",
             "selected_answer",
+            "selected_answer_text",
+            "correct_answer_text",
             "is_correct",
             "time_taken_seconds",
             "is_skipped",
@@ -18,6 +25,21 @@ class UserAnswerSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["is_correct", "created_at"]
+
+    def get_question_text(self, obj):
+        return obj.question.question_text_en if obj.question else None
+
+    def get_selected_answer_text(self, obj):
+        if obj.selected_answer:
+            return obj.selected_answer.answer_text_en
+        return None
+
+    def get_correct_answer_text(self, obj):
+        if obj.question:
+            correct = obj.question.answers.filter(is_correct=True).first()
+            if correct:
+                return correct.answer_text_en
+        return None
 
 
 class UserAttemptSerializer(serializers.ModelSerializer):

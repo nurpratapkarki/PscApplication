@@ -97,6 +97,8 @@ class UserAttemptViewSet(viewsets.ModelViewSet):
 class UserAnswerViewSet(viewsets.ModelViewSet):
     """
     ViewSet for submitting answers individually.
+    POST /api/answers/ acts as create-or-update (upsert) for the same
+    (user_attempt, question) pair so users can change their answer.
     """
 
     queryset = UserAnswer.objects.all()
@@ -106,33 +108,45 @@ class UserAnswerViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return UserAnswer.objects.filter(user_attempt__user=self.request.user)
 
-    def perform_create(self, serializer):
-        # Validate that the attempt belongs to user and is in progress
-        attempt = serializer.validated_data["user_attempt"]
-        if attempt.user != self.request.user:
+    def create(self, request, *args, **kwargs):
+        """
+        Override create to handle upsert: if an answer already exists for
+        (user_attempt, question), update it instead of failing on unique constraint.
+        """
+        attempt_id = request.data.get("user_attempt")
+        question_id = request.data.get("question")
+
+        if not attempt_id or not question_id:
+            return Response(
+                {"detail": "user_attempt and question are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate ownership and attempt status
+        try:
+            attempt = UserAttempt.objects.get(pk=attempt_id)
+        except UserAttempt.DoesNotExist:
+            raise ValidationError("Attempt not found.")
+
+        if attempt.user != request.user:
             raise ValidationError("Not authorized for this attempt.")
         if attempt.status != "IN_PROGRESS":
             raise ValidationError("Attempt is not in progress.")
 
-        # Check if answer already exists for this question in this attempt
-        question = serializer.validated_data["question"]
+        # Check if answer already exists — if so, update it
         existing = UserAnswer.objects.filter(
-            user_attempt=attempt, question=question
+            user_attempt=attempt, question_id=question_id
         ).first()
+
         if existing:
-            # Update the existing answer instead of creating a duplicate
-            existing.selected_answer = serializer.validated_data.get("selected_answer")
-            existing.time_taken_seconds = serializer.validated_data.get(
-                "time_taken_seconds", existing.time_taken_seconds
-            )
-            existing.is_skipped = serializer.validated_data.get(
-                "is_skipped", False
-            )
-            existing.is_marked_for_review = serializer.validated_data.get(
-                "is_marked_for_review", existing.is_marked_for_review
-            )
-            existing.save()
-            # Replace serializer.instance so the response returns the updated object
-            serializer.instance = existing
-            return
+            serializer = self.get_serializer(existing, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # No existing answer — create new one
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         serializer.save()
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)

@@ -61,6 +61,7 @@ export interface UserStatistics {
   last_activity_date?: string | null;
   badges_earned: Record<string, Badge>;
   contribution_rank?: number | null;
+  answers_rank?: number | null;
   accuracy_rank?: number | null;
   last_updated: string;
   // Computed/additional fields

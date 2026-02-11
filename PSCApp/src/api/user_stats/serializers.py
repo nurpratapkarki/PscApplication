@@ -34,6 +34,8 @@ class UserStatisticsSerializer(serializers.ModelSerializer):
     total_correct_answers = serializers.IntegerField(
         source="correct_answers", read_only=True
     )
+    contribution_rank = serializers.SerializerMethodField()
+    answers_rank = serializers.SerializerMethodField()
 
     class Meta:
         model = UserStatistics
@@ -49,7 +51,7 @@ class UserStatisticsSerializer(serializers.ModelSerializer):
             "last_activity_date",
             "badges_earned",
             "contribution_rank",
-            "accuracy_rank",
+            "answers_rank",
             "accuracy_percentage",
             "last_updated",
         ]
@@ -65,13 +67,33 @@ class UserStatisticsSerializer(serializers.ModelSerializer):
             "last_activity_date",
             "badges_earned",
             "contribution_rank",
-            "accuracy_rank",
+            "answers_rank",
             "accuracy_percentage",
             "last_updated",
         ]
 
     def get_accuracy_percentage(self, obj):
         return obj.get_accuracy_percentage()
+
+    def get_contribution_rank(self, obj):
+        if obj.questions_contributed <= 0:
+            return None
+        return (
+            UserStatistics.objects.filter(
+                questions_contributed__gt=obj.questions_contributed
+            ).count()
+            + 1
+        )
+
+    def get_answers_rank(self, obj):
+        if obj.questions_answered <= 0:
+            return None
+        return (
+            UserStatistics.objects.filter(
+                questions_answered__gt=obj.questions_answered
+            ).count()
+            + 1
+        )
 
 
 class StudyCollectionSerializer(serializers.ModelSerializer):

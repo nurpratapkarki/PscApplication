@@ -292,15 +292,27 @@ const TestAttemptScreen = () => {
         >
           Previous
         </Button>
-        <Button
-          mode="contained"
-          onPress={handleNext}
-          disabled={currentQuestionIndex === (testData.test_questions?.length || 0) - 1}
-          icon="chevron-right"
-          contentStyle={styles.nextButtonContent}
-        >
-          Next
-        </Button>
+        {currentQuestionIndex === (testData.test_questions?.length || 0) - 1 ? (
+          <Button
+            mode="contained"
+            onPress={showSubmitConfirm}
+            disabled={submitStatus === 'loading'}
+            loading={submitStatus === 'loading'}
+            icon="check-all"
+            buttonColor={Colors.success}
+          >
+            Finish & Submit
+          </Button>
+        ) : (
+          <Button
+            mode="contained"
+            onPress={handleNext}
+            icon="chevron-right"
+            contentStyle={styles.nextButtonContent}
+          >
+            Next
+          </Button>
+        )}
       </View>
     </SafeAreaView>
   );

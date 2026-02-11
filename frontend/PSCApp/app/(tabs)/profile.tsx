@@ -99,7 +99,7 @@ export default function ProfileScreen() {
           <Card style={styles.statCard}>
             <Card.Content style={styles.statContent}>
               <MaterialCommunityIcons name="trophy" size={24} color={Colors.warning} />
-              <Text style={styles.statValue}>#{stats?.contribution_rank || '-'}</Text>
+              <Text style={styles.statValue}>#{stats?.answers_rank || '-'}</Text>
               <Text style={styles.statLabel}>Rank</Text>
             </Card.Content>
           </Card>
