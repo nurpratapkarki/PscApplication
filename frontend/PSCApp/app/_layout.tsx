@@ -7,11 +7,19 @@ import { I18nextProvider } from "react-i18next";
 import i18n from "../i18n";
 import { useSettingsStore } from "../store/settingsStore";
 import { useColors } from "../hooks/useColors";
+import { usePushNotifications } from "../hooks/usePushNotifications";
+import { useNetwork } from "../hooks/useNetwork";
 
 export default function RootLayout() {
   const language = useSettingsStore((state) => state.language);
   const darkMode = useSettingsStore((state) => state.darkMode);
   const colors = useColors();
+
+  // Register for push notifications
+  usePushNotifications();
+
+  // Track network connectivity globally (enables offline cache + pending op flush)
+  useNetwork();
 
   if (i18n.language !== language) {
     i18n.changeLanguage(language);

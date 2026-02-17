@@ -60,3 +60,29 @@ export async function getUnreadNotificationCount(
 		{ token: token ?? undefined },
 	);
 }
+
+export async function registerPushToken(
+	pushToken: string,
+	token?: string | null,
+): Promise<{ status: string; token: string }> {
+	return apiRequest<{ status: string; token: string }>(
+		API_ENDPOINTS.notifications.registerPushToken,
+		{
+			method: "POST",
+			token: token ?? undefined,
+			body: JSON.stringify({ token: pushToken }),
+		},
+	);
+}
+
+export async function unregisterPushToken(
+	token?: string | null,
+): Promise<{ status: string }> {
+	return apiRequest<{ status: string }>(
+		API_ENDPOINTS.notifications.unregisterPushToken,
+		{
+			method: "POST",
+			token: token ?? undefined,
+		},
+	);
+}

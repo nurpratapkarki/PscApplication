@@ -210,12 +210,16 @@ export default function ProfileSetupScreen() {
 
   const getBranchIcon = (slug: string): keyof typeof MaterialCommunityIcons.glyphMap => {
     const icons: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
-      'nasu': 'account-tie',
-      'kharidar': 'clipboard-account',
-      'technical': 'cog',
-      'engineering': 'hard-hat',
-      'health': 'hospital-box',
-      'education': 'school',
+      'administrative-service': 'account-tie',
+      'engineering-service': 'hard-hat',
+      'health-service': 'hospital-box',
+      'education-service': 'school',
+      'judicial-service': 'gavel',
+      'agriculture-service': 'sprout',
+      'forest-service': 'tree',
+      'audit-service': 'calculator',
+      'foreign-affairs-service': 'earth',
+      'miscellaneous-service': 'folder-multiple',
     };
     return icons[slug] || 'folder';
   };

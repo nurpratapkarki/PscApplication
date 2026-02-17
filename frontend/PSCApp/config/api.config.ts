@@ -23,6 +23,7 @@ export const API_ENDPOINTS = {
 	  categories: "/api/categories/",
 	  categoryDetail: (id: number | string) => `/api/categories/${id}/`,
 	  categoriesForUser: "/api/categories/for-user/",
+	  categoriesForBranch: "/api/categories/for-branch/",
 	},
 	questions: {
 	  list: "/api/questions/",
@@ -47,6 +48,7 @@ export const API_ENDPOINTS = {
 	answers: {
 	  list: "/api/answers/",
 	  detail: (id: number | string) => `/api/answers/${id}/`,
+	  bulk: "/api/answers/bulk/",
 	},
 	analytics: {
 	  contributions: "/api/contributions/",
@@ -69,6 +71,8 @@ export const API_ENDPOINTS = {
 	  markRead: (id: number | string) => `/api/notifications/${id}/read/`,
 	  markAllRead: "/api/notifications/read-all/",
 	  unreadCount: "/api/notifications/unread/",
+	  registerPushToken: "/api/notifications/register-push-token/",
+	  unregisterPushToken: "/api/notifications/unregister-push-token/",
 	},
 	settings: {
 	  list: "/api/settings/",

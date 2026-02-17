@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Avatar, Card, Text, ActivityIndicator, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,8 +25,16 @@ export default function ProfileScreen() {
   const { t } = useTranslation();
   const colors = useColors();
   const { logout } = useAuth();
-  const { data: user, status: userStatus } = useApi<UserProfile>('/api/auth/user/');
-  const { data: stats, status: statsStatus } = useApi<UserStatistics>('/api/statistics/me/');
+  const { data: user, status: userStatus, refetch: refetchUser } = useApi<UserProfile>('/api/auth/user/');
+  const { data: stats, status: statsStatus, refetch: refetchStats } = useApi<UserStatistics>('/api/statistics/me/');
+
+  // Refetch profile + stats every time this tab gains focus
+  useFocusEffect(
+    useCallback(() => {
+      refetchUser();
+      refetchStats();
+    }, [refetchUser, refetchStats])
+  );
 
   const isLoading = userStatus === 'loading' || statsStatus === 'loading';
 
@@ -118,7 +126,7 @@ export default function ProfileScreen() {
           <View style={styles.avatarContainer}>
             <Avatar.Image 
               size={90} 
-              source={{ uri: user?.profile_picture || `https://i.pravatar.cc/150?u=${user?.email}` }} 
+              source={{ uri: user?.profile_picture ||'' }} 
             />
             <TouchableOpacity style={[styles.editAvatarBtn, { backgroundColor: colors.primary, borderColor: colors.background }]}>
               <MaterialCommunityIcons name="camera" size={16} color={colors.white} />

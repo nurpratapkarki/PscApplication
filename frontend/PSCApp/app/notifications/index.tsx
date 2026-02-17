@@ -12,6 +12,7 @@ import { useColors } from '../../hooks/useColors';
 import { useLocalizedField } from '../../hooks/useLocalizedField';
 import { Spacing } from '../../constants/typography';
 import { markNotificationRead, markAllNotificationsRead } from '../../services/api/notifications';
+import { apiRequest } from '../../services/api/client';
 import { useAuthStore } from '../../store/authStore';
 
 type NotificationCategory = 'ALL' | 'UNREAD' | 'SYSTEM' | 'ACHIEVEMENT';
@@ -142,14 +143,28 @@ export default function NotificationsScreen() {
     setRefreshing(false);
   }, [refetch]);
 
-  const handleNotificationPress = (notification: Notification) => {
+  const handleNotificationPress = async (notification: Notification) => {
+    // Mark as read on press
+    if (!notification.is_read) {
+      handleMarkRead(notification.id);
+    }
+
     // Navigate based on notification type and action_url
     if (notification.action_url) {
       router.push(notification.action_url as any);
-    } else if (notification.related_question) {
-      router.push(`/practice/question/${notification.related_question}`);
     } else if (notification.related_mock_test) {
-      router.push(`/tests/${notification.related_mock_test}`);
+      router.push(`/tests/${notification.related_mock_test}` as any);
+    } else if (notification.related_question) {
+      // Fetch the question to get its category, then navigate to practice
+      try {
+        const question = await apiRequest<{ category: number }>(`/api/questions/${notification.related_question}/`, { token: accessToken ?? undefined });
+        if (question?.category) {
+          router.push(`/practice/${question.category}` as any);
+        }
+      } catch {
+        // If question fetch fails, go to practice categories
+        router.push('/practice/categories' as any);
+      }
     }
   };
 

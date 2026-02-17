@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { zustandMMKVStorage } from '../services/storage';
 import type { LanguagePreference } from '../types/user.types';
 
 type NotificationFrequency = 'all' | 'important' | 'none';
@@ -123,7 +123,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'settings-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => zustandMMKVStorage),
     }
   )
 );

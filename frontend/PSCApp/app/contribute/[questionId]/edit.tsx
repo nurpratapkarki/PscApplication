@@ -6,8 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../../hooks/useApi';
+import { usePaginatedApi } from '../../../hooks/usePaginatedApi';
 import { Question, AnswerOption as AnswerOptionType } from '../../../types/question.types';
-import { Category } from '../../../types/category.types';
+import { Branch, Category } from '../../../types/category.types';
 import { Contribution } from '../../../types/contribution.types';
 import { useColors } from '../../../hooks/useColors';
 import { useLocalizedField } from '../../../hooks/useLocalizedField';
@@ -33,13 +34,21 @@ export default function EditContributionScreen() {
   const { data: contribution, status: contributionStatus } = useApi<Contribution>(
     questionId ? `/api/contributions/${questionId}/` : ''
   );
-  
+
   const { data: question, status: questionStatus } = useApi<Question>(
     contribution?.question ? `/api/questions/${contribution.question}/` : '',
     !contribution?.question
   );
-  
-  const { data: categories } = useApi<Category[]>('/api/categories/');
+
+  const { data: branches } = usePaginatedApi<Branch>('/api/branches/');
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  const [selectedSubBranch, setSelectedSubBranch] = useState<number | null>(null);
+  const { data: categories, status: categoryStatus, execute: fetchCategories } = useApi<Category[]>(
+    selectedBranch
+      ? `/api/categories/for-branch/?branch=${selectedBranch.id}${selectedSubBranch ? `&sub_branch=${selectedSubBranch}` : ''}`
+      : '',
+    true
+  );
 
   const [questionText, setQuestionText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -67,6 +76,30 @@ export default function EditContributionScreen() {
       }
     }
   }, [question]);
+
+  // Auto-select first branch when branches load so categories populate
+  useEffect(() => {
+    if (branches && branches.length > 0 && !selectedBranch) {
+      setSelectedBranch(branches[0]);
+    }
+  }, [branches, selectedBranch]);
+
+  // Refetch categories when branch or sub-branch changes
+  useEffect(() => {
+    if (selectedBranch) {
+      fetchCategories();
+    }
+  }, [selectedBranch?.id, selectedSubBranch, fetchCategories, selectedBranch]);
+
+  // Group categories by scope
+  const groupedCategories = React.useMemo(() => {
+    if (!categories) return { universal: [] as Category[], branch: [] as Category[], subbranch: [] as Category[] };
+    return {
+      universal: categories.filter(c => c.scope_type === 'UNIVERSAL'),
+      branch: categories.filter(c => c.scope_type === 'BRANCH'),
+      subbranch: categories.filter(c => c.scope_type === 'SUBBRANCH'),
+    };
+  }, [categories]);
 
   const updateAnswer = (index: number, text: string) => {
     const newAnswers = [...answers];
@@ -213,26 +246,123 @@ export default function EditContributionScreen() {
             </Card>
           )}
 
-          {/* Category Selection */}
+          {/* Branch Selection */}
           <Card style={styles.card}>
             <Card.Content>
-              <Text style={styles.inputLabel}>{t('contribute.selectCategory')}</Text>
+              <Text style={styles.inputLabel}>{t('contribute.selectBranch')}</Text>
               <View style={styles.chipRow}>
-                {categories?.slice(0, 6).map((cat) => (
-                  <Chip 
-                    key={cat.id} 
-                    selected={selectedCategory === cat.id} 
-                    onPress={() => canEdit && setSelectedCategory(cat.id)} 
-                    style={styles.chip} 
+                {branches?.map((branch) => (
+                  <Chip
+                    key={branch.id}
+                    selected={selectedBranch?.id === branch.id}
+                    onPress={() => {
+                      if (!canEdit) return;
+                      setSelectedBranch(branch);
+                      setSelectedSubBranch(null);
+                      setSelectedCategory(null);
+                    }}
+                    style={styles.chip}
                     selectedColor={colors.primary}
                     disabled={!canEdit}
                   >
-                    {lf(cat.name_en, cat.name_np)}
+                    {lf(branch.name_en, branch.name_np)}
                   </Chip>
                 ))}
               </View>
+
+              {/* Sub-branch selection */}
+              {selectedBranch?.has_sub_branches && (selectedBranch.sub_branches?.length ?? 0) > 0 && (
+                <>
+                  <Text style={[styles.inputLabel, { marginTop: Spacing.md }]}>
+                    {t('contribute.selectSubBranch', { defaultValue: 'Sub-Branch (optional)' })}
+                  </Text>
+                  <View style={styles.chipRow}>
+                    <Chip
+                      selected={selectedSubBranch === null}
+                      onPress={() => { if (canEdit) { setSelectedSubBranch(null); setSelectedCategory(null); } }}
+                      style={styles.chip}
+                      selectedColor={colors.primary}
+                      disabled={!canEdit}
+                    >
+                      {t('common.allTests', { defaultValue: 'All' })}
+                    </Chip>
+                    {selectedBranch.sub_branches?.map((sb) => (
+                      <Chip
+                        key={sb.id}
+                        selected={selectedSubBranch === sb.id}
+                        onPress={() => { if (canEdit) { setSelectedSubBranch(sb.id); setSelectedCategory(null); } }}
+                        style={styles.chip}
+                        selectedColor={colors.primary}
+                        disabled={!canEdit}
+                      >
+                        {lf(sb.name_en, sb.name_np)}
+                      </Chip>
+                    ))}
+                  </View>
+                </>
+              )}
             </Card.Content>
           </Card>
+
+          {/* Category Selection — grouped by scope */}
+          {selectedBranch && (
+            <Card style={styles.card}>
+              <Card.Content>
+                <Text style={styles.inputLabel}>{t('contribute.selectCategory')}</Text>
+                {categoryStatus === 'loading' ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <View>
+                    {groupedCategories.universal.length > 0 && (
+                      <>
+                        <Text style={[styles.inputHint, { fontWeight: '600', color: colors.info }]}>
+                          {t('practice.universalSubjects', { defaultValue: 'Common Subjects' })}
+                        </Text>
+                        <View style={styles.chipRow}>
+                          {groupedCategories.universal.map((cat) => (
+                            <Chip key={cat.id} selected={selectedCategory === cat.id} onPress={() => canEdit && setSelectedCategory(cat.id)} style={styles.chip} selectedColor={colors.info} disabled={!canEdit}>
+                              {lf(cat.name_en, cat.name_np)}
+                            </Chip>
+                          ))}
+                        </View>
+                      </>
+                    )}
+                    {groupedCategories.branch.length > 0 && (
+                      <>
+                        <Text style={[styles.inputHint, { fontWeight: '600', color: colors.accent, marginTop: Spacing.sm }]}>
+                          {t('practice.branchSubjects', { defaultValue: 'Service Specific' })}
+                        </Text>
+                        <View style={styles.chipRow}>
+                          {groupedCategories.branch.map((cat) => (
+                            <Chip key={cat.id} selected={selectedCategory === cat.id} onPress={() => canEdit && setSelectedCategory(cat.id)} style={styles.chip} selectedColor={colors.accent} disabled={!canEdit}>
+                              {lf(cat.name_en, cat.name_np)}
+                            </Chip>
+                          ))}
+                        </View>
+                      </>
+                    )}
+                    {groupedCategories.subbranch.length > 0 && (
+                      <>
+                        <Text style={[styles.inputHint, { fontWeight: '600', color: colors.secondary, marginTop: Spacing.sm }]}>
+                          {t('practice.subBranchSubjects', { defaultValue: 'Specialization' })}
+                        </Text>
+                        <View style={styles.chipRow}>
+                          {groupedCategories.subbranch.map((cat) => (
+                            <Chip key={cat.id} selected={selectedCategory === cat.id} onPress={() => canEdit && setSelectedCategory(cat.id)} style={styles.chip} selectedColor={colors.secondary} disabled={!canEdit}>
+                              {lf(cat.name_en, cat.name_np)}
+                            </Chip>
+                          ))}
+                        </View>
+                      </>
+                    )}
+                    {categories && categories.length === 0 && (
+                      <Text style={styles.inputHint}>{t('practice.noCategories', { defaultValue: 'No categories available' })}</Text>
+                    )}
+                  </View>
+                )}
+              </Card.Content>
+            </Card>
+          )}
 
           {/* Question Text */}
           <Card style={styles.card}>

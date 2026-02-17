@@ -9,8 +9,24 @@ import { useApi } from '../../hooks/useApi';
 import { Branch } from '../../types/category.types';
 import { useColors } from '../../hooks/useColors';
 import { useLocalizedField } from '../../hooks/useLocalizedField';
-import { ColorScheme } from '../../constants/colors';
+import { Colors, ColorScheme } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
+
+const getBranchIcon = (slug: string): keyof typeof MaterialCommunityIcons.glyphMap => {
+  const icons: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+    'administrative-service': 'account-tie',
+    'engineering-service': 'hard-hat',
+    'health-service': 'hospital-box',
+    'education-service': 'school',
+    'judicial-service': 'gavel',
+    'agriculture-service': 'sprout',
+    'forest-service': 'tree',
+    'audit-service': 'calculator',
+    'foreign-affairs-service': 'earth',
+    'miscellaneous-service': 'folder-multiple',
+  };
+  return icons[slug] || 'folder';
+};
 
 const CreateTestScreen = () => {
   const router = useRouter();
@@ -22,6 +38,7 @@ const CreateTestScreen = () => {
 
   const [title, setTitle] = useState('');
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  const [selectedSubBranch, setSelectedSubBranch] = useState<number | null>(null);
   const [questionCount, setQuestionCount] = useState('20');
   const [duration, setDuration] = useState('30');
 
@@ -71,19 +88,54 @@ const CreateTestScreen = () => {
             {branchStatus === 'loading' ? (
               <ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
             ) : branches && branches.length > 0 ? (
-              <View style={styles.branchGrid}>
-                {branches.map((branch) => (
-                  <TouchableOpacity key={branch.id} style={[styles.branchCard, selectedBranch?.id === branch.id && styles.branchCardSelected]} onPress={() => setSelectedBranch(branch)} activeOpacity={0.7}>
-                    <MaterialCommunityIcons name="school" size={24} color={selectedBranch?.id === branch.id ? colors.primary : colors.textSecondary} />
-                    <Text style={[styles.branchName, selectedBranch?.id === branch.id && styles.branchNameSelected]}>{lf(branch.name_en, branch.name_np)}</Text>
-                    {selectedBranch?.id === branch.id && (
-                      <View style={styles.checkIcon}>
-                        <MaterialCommunityIcons name="check" size={14} color={colors.white} />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <>
+                <View style={styles.branchGrid}>
+                  {branches.map((branch) => (
+                    <TouchableOpacity
+                      key={branch.id}
+                      style={[styles.branchCard, selectedBranch?.id === branch.id && styles.branchCardSelected]}
+                      onPress={() => { setSelectedBranch(branch); setSelectedSubBranch(null); }}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons name={getBranchIcon(branch.slug)} size={24} color={selectedBranch?.id === branch.id ? Colors.primary : colors.textSecondary} />
+                      <Text style={[styles.branchName, selectedBranch?.id === branch.id && styles.branchNameSelected]}>{lf(branch.name_en, branch.name_np)}</Text>
+                      {selectedBranch?.id === branch.id && (
+                        <View style={styles.checkIcon}>
+                          <MaterialCommunityIcons name="check" size={14} color={colors.white} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Sub-branch selection */}
+                {selectedBranch?.has_sub_branches && (selectedBranch.sub_branches?.length ?? 0) > 0 && (
+                  <View style={{ marginTop: Spacing.md }}>
+                    <Text style={[styles.inputLabel, { marginBottom: Spacing.sm }]}>
+                      {t('tests.selectSubBranch', { defaultValue: 'Sub-Branch (optional)' })}
+                    </Text>
+                    <View style={styles.subBranchRow}>
+                      <Chip
+                        selected={selectedSubBranch === null}
+                        onPress={() => setSelectedSubBranch(null)}
+                        selectedColor={Colors.primary}
+                      >
+                        {t('common.allTests', { defaultValue: 'All' })}
+                      </Chip>
+                      {selectedBranch.sub_branches?.map((sb) => (
+                        <Chip
+                          key={sb.id}
+                          selected={selectedSubBranch === sb.id}
+                          onPress={() => setSelectedSubBranch(sb.id)}
+                          selectedColor={Colors.primary}
+                        >
+                          {lf(sb.name_en, sb.name_np)}
+                        </Chip>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </>
             ) : (
               <Text style={styles.branchName}>{t('tests.noBranches')}</Text>
             )}
@@ -175,6 +227,7 @@ const createStyles = (colors: ColorScheme) => StyleSheet.create({
   textInput: { backgroundColor: colors.cardBackground },
   loader: { marginVertical: Spacing.lg },
   branchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  subBranchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   branchCard: { width: '48%', backgroundColor: colors.surfaceVariant, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   branchCardSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight + '30' },
   branchName: { fontSize: 13, color: colors.textSecondary, marginTop: Spacing.xs, textAlign: 'center' },

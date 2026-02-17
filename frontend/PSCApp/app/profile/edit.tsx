@@ -13,8 +13,24 @@ import { updateUserProfile } from '../../services/api/profile';
 import { useAuthStore } from '../../store/authStore';
 import { useColors } from '../../hooks/useColors';
 import { useLocalizedField } from '../../hooks/useLocalizedField';
-import { ColorScheme } from '../../constants/colors';
+import { Colors, ColorScheme } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
+
+const getBranchIcon = (slug: string): keyof typeof MaterialCommunityIcons.glyphMap => {
+  const icons: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+    'administrative-service': 'account-tie',
+    'engineering-service': 'hard-hat',
+    'health-service': 'hospital-box',
+    'education-service': 'school',
+    'judicial-service': 'gavel',
+    'agriculture-service': 'sprout',
+    'forest-service': 'tree',
+    'audit-service': 'calculator',
+    'foreign-affairs-service': 'earth',
+    'miscellaneous-service': 'folder-multiple',
+  };
+  return icons[slug] || 'folder';
+};
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -29,14 +45,21 @@ export default function EditProfileScreen() {
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [phone, setPhone] = useState(user?.phone_number || '');
   const [selectedBranch, setSelectedBranch] = useState<number | null>(user?.target_branch || null);
+  const [selectedSubBranch, setSelectedSubBranch] = useState<number | null>(user?.target_sub_branch || null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const activeBranch = React.useMemo(
+    () => branches?.find(b => b.id === selectedBranch) ?? null,
+    [branches, selectedBranch]
+  );
 
   React.useEffect(() => {
     if (user) {
       setFullName(user.full_name || '');
       setPhone(user.phone_number || '');
       setSelectedBranch(user.target_branch || null);
+      setSelectedSubBranch(user.target_sub_branch || null);
     }
   }, [user]);
 
@@ -85,6 +108,9 @@ export default function EditProfileScreen() {
       }
       if (selectedBranch !== user?.target_branch && selectedBranch !== null) {
         formData.append('target_branch', String(selectedBranch));
+      }
+      if (selectedSubBranch !== user?.target_sub_branch) {
+        formData.append('target_sub_branch', selectedSubBranch ? String(selectedSubBranch) : '');
       }
 
       // Handle image upload
@@ -219,18 +245,57 @@ export default function EditProfileScreen() {
             <Card.Content>
               <Text style={styles.inputLabel}>{t('profile.preferredBranch')}</Text>
               <View style={styles.branchGrid}>
-                {branches?.map((branch) => (
-                  <Chip 
-                    key={branch.id} 
-                    selected={selectedBranch === branch.id} 
-                    onPress={() => setSelectedBranch(branch.id)} 
-                    style={styles.branchChip} 
-                    selectedColor={colors.primary}
-                  >
-                    {lf(branch.name_en, branch.name_np)}
-                  </Chip>
-                ))}
+                {branches?.map((branch) => {
+                  const isSelected = selectedBranch === branch.id;
+                  return (
+                    <TouchableOpacity
+                      key={branch.id}
+                      style={[styles.branchCard, isSelected && styles.branchCardSelected]}
+                      onPress={() => {
+                        setSelectedBranch(branch.id);
+                        setSelectedSubBranch(null);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons
+                        name={getBranchIcon(branch.slug)}
+                        size={24}
+                        color={isSelected ? Colors.primary : colors.textSecondary}
+                      />
+                      <Text style={[styles.branchName, isSelected && styles.branchNameSelected]}>
+                        {lf(branch.name_en, branch.name_np)}
+                      </Text>
+                      {isSelected && (
+                        <View style={styles.checkIcon}>
+                          <MaterialCommunityIcons name="check" size={14} color={colors.white} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
+
+              {/* Sub-branch selection */}
+              {activeBranch?.has_sub_branches && (activeBranch.sub_branches?.length ?? 0) > 0 && (
+                <>
+                  <Text style={[styles.inputLabel, { marginTop: Spacing.lg }]}>
+                    {t('profile.preferredSubBranch', { defaultValue: 'Select Sub-Branch' })}
+                  </Text>
+                  <View style={styles.chipRow}>
+                    {activeBranch.sub_branches?.map((sb) => (
+                      <Chip
+                        key={sb.id}
+                        selected={selectedSubBranch === sb.id}
+                        onPress={() => setSelectedSubBranch(selectedSubBranch === sb.id ? null : sb.id)}
+                        style={styles.branchChip}
+                        selectedColor={Colors.primary}
+                      >
+                        {lf(sb.name_en, sb.name_np)}
+                      </Chip>
+                    ))}
+                  </View>
+                </>
+              )}
             </Card.Content>
           </Card>
         </ScrollView>
@@ -269,7 +334,13 @@ const createStyles = (colors: ColorScheme) => StyleSheet.create({
   card: { backgroundColor: colors.cardBackground, borderRadius: BorderRadius.xl, marginBottom: Spacing.lg, elevation: 2 },
   inputLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: Spacing.xs, marginTop: Spacing.md },
   textInput: { backgroundColor: colors.cardBackground },
-  branchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  branchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  branchCard: { width: '47%', backgroundColor: colors.surfaceVariant, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: 'center' as const, borderWidth: 2, borderColor: 'transparent' },
+  branchCardSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight + '30' },
+  branchName: { fontSize: 13, color: colors.textSecondary, marginTop: Spacing.xs, textAlign: 'center' as const },
+  branchNameSelected: { color: colors.primary, fontWeight: '600' as const },
+  checkIcon: { position: 'absolute' as const, top: 8, right: 8, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center' as const, justifyContent: 'center' as const },
+  chipRow: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: Spacing.xs },
   branchChip: { marginBottom: Spacing.xs },
   bottomAction: { backgroundColor: colors.cardBackground, padding: Spacing.base, borderTopWidth: 1, borderTopColor: colors.border },
   saveButton: { borderRadius: BorderRadius.lg },

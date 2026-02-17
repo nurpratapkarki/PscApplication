@@ -21,13 +21,15 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.pscapp.exam"
+      "package": "com.pscapp.exam",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "expo-notifications",
       "expo-router",
       [
         "expo-splash-screen",
@@ -53,9 +55,11 @@
         "androidClientId": "YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com",
         "webClientId": "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
       },
+      "router": {},
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
+        "projectId": "c9f34e01-c5f0-4792-bbb4-9e3bd5a0585d"
       }
-    }
+    },
+    "owner": "nurprartapkarki1"
   }
 }

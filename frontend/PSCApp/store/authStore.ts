@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { zustandMMKVStorage } from '../services/storage';
 import type { UserProfile } from '../types/user.types';
 import type { TokenResponse } from '../types/auth.types';
 
@@ -80,7 +80,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => zustandMMKVStorage),
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
