@@ -166,3 +166,23 @@ export interface Notification {
   action_url?: string | null;
   created_at: string;
 }
+export interface RankingEntry {
+  rank: number;
+  user_name: string;
+  profile_picture: string | null;
+  questions_answered: number;
+  correct_answers: number;
+  accuracy_percentage: number;
+  questions_contributed: number;
+  study_streak_days: number;
+  mock_tests_completed: number;
+}
+
+export interface RankingsResponse {
+  type: 'answers' | 'contributions';
+  label: string;
+  my_entry: RankingEntry | null;
+  top_users: RankingEntry[];
+}
+
+export type RankingType = 'answers' | 'contributions';

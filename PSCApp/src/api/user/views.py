@@ -1,8 +1,7 @@
 from rest_framework import generics, permissions
 
-# from django.contrib.auth import authenticate, login, logout # If using standard auth
-# from src.api.permissions import IsOwnerOrReadOnly # Not strictly needed if we just return request.user
 from src.api.user.serializers import UserProfileSerializer
+from src.models.user import UserProfile
 
 
 class UserProfileDetailView(generics.RetrieveUpdateAPIView):
@@ -15,4 +14,13 @@ class UserProfileDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
-        return self.request.user.profile
+        user = self.request.user
+        profile, _ = UserProfile.objects.get_or_create(
+            google_auth_user=user,
+            defaults={
+                "email": user.email,
+                "full_name": f"{user.first_name} {user.last_name}".strip()
+                or user.username,
+            },
+        )
+        return profile

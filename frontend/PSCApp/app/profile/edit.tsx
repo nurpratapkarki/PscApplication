@@ -5,16 +5,23 @@ import { Card, Text, TextInput, Button, Avatar, ActivityIndicator, Chip } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/useApi';
 import { UserProfile } from '../../types/user.types';
 import { Branch } from '../../types/category.types';
 import { updateUserProfile } from '../../services/api/profile';
 import { useAuthStore } from '../../store/authStore';
-import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
+import { useLocalizedField } from '../../hooks/useLocalizedField';
+import { ColorScheme } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
 
 export default function EditProfileScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const colors = useColors();
+  const lf = useLocalizedField();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { data: user, status: userStatus, refetch: refetchUser } = useApi<UserProfile>('/api/auth/user/');
   const { data: branches } = useApi<Branch[]>('/api/branches/');
   const getAccessToken = useAuthStore((state) => state.getAccessToken);
@@ -36,7 +43,7 @@ export default function EditProfileScreen() {
   const handlePickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Permission Required', 'Please allow access to your photo library to change your profile picture.');
+      Alert.alert(t('profile.permissionRequired'), t('profile.photoPermissionMessage'));
       return;
     }
 
@@ -55,7 +62,7 @@ export default function EditProfileScreen() {
   const handleSave = async () => {
     // Validate required fields
     if (!fullName.trim()) {
-      Alert.alert('Validation Error', 'Please enter your full name');
+      Alert.alert(t('profile.validationError'), t('profile.fullNameRequired'));
       return;
     }
 
@@ -63,7 +70,7 @@ export default function EditProfileScreen() {
     try {
       const token = getAccessToken();
       if (!token) {
-        throw new Error('Authentication token not found');
+        throw new Error(t('profile.authTokenMissing'));
       }
 
       // Build FormData for file upload or regular update
@@ -107,20 +114,20 @@ export default function EditProfileScreen() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || errorData.error || 'Failed to update profile');
+        throw new Error(errorData.detail || errorData.error || t('profile.updateFailed'));
       }
 
       // Refetch user data to update UI
       await refetchUser();
       
       Alert.alert(
-        'Success', 
-        'Profile updated successfully!', 
-        [{ text: 'OK', onPress: () => router.back() }]
+        t('common.success'), 
+        t('profile.profileUpdated'), 
+        [{ text: t('common.ok'), onPress: () => router.back() }]
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update profile';
-      Alert.alert('Error', message);
+      const message = err instanceof Error ? err.message : t('profile.updateFailed');
+      Alert.alert(t('common.error'), message);
       console.error('Profile update error:', err);
     } finally {
       setIsSaving(false);
@@ -130,7 +137,7 @@ export default function EditProfileScreen() {
   if (userStatus === 'loading') {
     return (
       <SafeAreaView style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -142,9 +149,9 @@ export default function EditProfileScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.textPrimary} />
+            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
+          <Text style={styles.headerTitle}>{t('profile.editProfile')}</Text>
           <View style={{ width: 44 }} />
         </View>
 
@@ -160,48 +167,48 @@ export default function EditProfileScreen() {
                   }} 
                 />
                 <View style={styles.changeAvatarBtn}>
-                  <MaterialCommunityIcons name="camera" size={20} color={Colors.white} />
+                  <MaterialCommunityIcons name="camera" size={20} color={colors.white} />
                 </View>
               </View>
-              <Text style={styles.changePhotoText}>Tap to change photo</Text>
+              <Text style={styles.changePhotoText}>{t('profile.changePhoto')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Form */}
           <Card style={styles.card}>
             <Card.Content>
-              <Text style={styles.inputLabel}>Full Name</Text>
+              <Text style={styles.inputLabel}>{t('profile.fullName')}</Text>
               <TextInput 
                 mode="outlined" 
-                placeholder="Enter your full name" 
+                placeholder={t('profile.fullNamePlaceholder')}
                 value={fullName} 
                 onChangeText={setFullName} 
                 style={styles.textInput} 
-                outlineColor={Colors.border} 
-                activeOutlineColor={Colors.primary} 
+                outlineColor={colors.border} 
+                activeOutlineColor={colors.primary} 
                 left={<TextInput.Icon icon="account" />} 
               />
 
-              <Text style={styles.inputLabel}>Email</Text>
+              <Text style={styles.inputLabel}>{t('profile.email')}</Text>
               <TextInput 
                 mode="outlined" 
                 value={user?.email || ''} 
                 style={styles.textInput} 
-                outlineColor={Colors.border} 
+                outlineColor={colors.border} 
                 disabled 
                 left={<TextInput.Icon icon="email" />} 
               />
 
-              <Text style={styles.inputLabel}>Phone Number</Text>
+              <Text style={styles.inputLabel}>{t('profile.phoneNumber')}</Text>
               <TextInput 
                 mode="outlined" 
-                placeholder="Enter phone number" 
+                placeholder={t('profile.phoneNumberPlaceholder')}
                 value={phone} 
                 onChangeText={setPhone} 
                 keyboardType="phone-pad" 
                 style={styles.textInput} 
-                outlineColor={Colors.border} 
-                activeOutlineColor={Colors.primary} 
+                outlineColor={colors.border} 
+                activeOutlineColor={colors.primary} 
                 left={<TextInput.Icon icon="phone" />} 
               />
             </Card.Content>
@@ -210,7 +217,7 @@ export default function EditProfileScreen() {
           {/* Branch Selection */}
           <Card style={styles.card}>
             <Card.Content>
-              <Text style={styles.inputLabel}>Preferred Branch</Text>
+              <Text style={styles.inputLabel}>{t('profile.preferredBranch')}</Text>
               <View style={styles.branchGrid}>
                 {branches?.map((branch) => (
                   <Chip 
@@ -218,9 +225,9 @@ export default function EditProfileScreen() {
                     selected={selectedBranch === branch.id} 
                     onPress={() => setSelectedBranch(branch.id)} 
                     style={styles.branchChip} 
-                    selectedColor={Colors.primary}
+                    selectedColor={colors.primary}
                   >
-                    {branch.name_en}
+                    {lf(branch.name_en, branch.name_np)}
                   </Chip>
                 ))}
               </View>
@@ -240,7 +247,7 @@ export default function EditProfileScreen() {
             loading={isSaving} 
             disabled={isSaving}
           >
-            Save Changes
+            {t('profile.saveChanges')}
           </Button>
         </View>
       </KeyboardAvoidingView>
@@ -248,23 +255,23 @@ export default function EditProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+const createStyles = (colors: ColorScheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.base },
-  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center', elevation: 2 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.cardBackground, alignItems: 'center', justifyContent: 'center', elevation: 2 },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   scrollContent: { padding: Spacing.base, paddingBottom: 100 },
   avatarSection: { alignItems: 'center', marginBottom: Spacing.xl },
   avatarContainer: { position: 'relative' },
-  changeAvatarBtn: { position: 'absolute', bottom: 0, right: 0, width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: Colors.background },
-  changePhotoText: { fontSize: 13, color: Colors.primary, marginTop: Spacing.sm },
-  card: { backgroundColor: Colors.white, borderRadius: BorderRadius.xl, marginBottom: Spacing.lg, elevation: 2 },
-  inputLabel: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, marginBottom: Spacing.xs, marginTop: Spacing.md },
-  textInput: { backgroundColor: Colors.white },
+  changeAvatarBtn: { position: 'absolute', bottom: 0, right: 0, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.background },
+  changePhotoText: { fontSize: 13, color: colors.primary, marginTop: Spacing.sm },
+  card: { backgroundColor: colors.cardBackground, borderRadius: BorderRadius.xl, marginBottom: Spacing.lg, elevation: 2 },
+  inputLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: Spacing.xs, marginTop: Spacing.md },
+  textInput: { backgroundColor: colors.cardBackground },
   branchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   branchChip: { marginBottom: Spacing.xs },
-  bottomAction: { backgroundColor: Colors.white, padding: Spacing.base, borderTopWidth: 1, borderTopColor: Colors.border },
+  bottomAction: { backgroundColor: colors.cardBackground, padding: Spacing.base, borderTopWidth: 1, borderTopColor: colors.border },
   saveButton: { borderRadius: BorderRadius.lg },
   saveButtonContent: { paddingVertical: Spacing.sm },
   saveButtonLabel: { fontSize: 16, fontWeight: '700' },

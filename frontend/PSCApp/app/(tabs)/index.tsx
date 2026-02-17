@@ -1,46 +1,48 @@
 import React from 'react';
 import { StyleSheet, ScrollView, View, TouchableOpacity, RefreshControl } from 'react-native';
-import { Card, Text, Button, ActivityIndicator } from 'react-native-paper';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/useApi';
 import { UserStatistics } from '../../types/user.types';
-import { Colors } from '../../constants/colors';
-import { Spacing, BorderRadius } from '../../constants/typography';
+import { useColors } from '../../hooks/useColors';
+
 
 interface QuickAction {
   id: string;
   titleKey: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  color: string;
+  colorKey: 'primary' | 'accent' | 'secondary' | 'warning';
   route: string;
 }
 
 const quickActions: QuickAction[] = [
-  { id: '1', titleKey: 'home.practice', icon: 'book-open-variant', color: Colors.primary, route: '/practice/categories' },
-  { id: '2', titleKey: 'home.mockTest', icon: 'clipboard-text-clock', color: Colors.accent, route: '/(tabs)/tests' },
-  { id: '3', titleKey: 'home.contribute', icon: 'plus-circle', color: Colors.secondary, route: '/contribute' },
-  { id: '4', titleKey: 'home.leaderboard', icon: 'trophy', color: Colors.warning, route: '/(tabs)/leaderboard' },
+  { id: '1', titleKey: 'home.practice', icon: 'book-open-variant', colorKey: 'primary', route: '/practice/categories' },
+  { id: '2', titleKey: 'home.mockTest', icon: 'clipboard-text-clock', colorKey: 'accent', route: '/(tabs)/tests' },
+  { id: '3', titleKey: 'home.contribute', icon: 'plus-circle', colorKey: 'secondary', route: '/contribute' },
+  { id: '4', titleKey: 'home.leaderboard', icon: 'trophy', colorKey: 'warning', route: '/(tabs)/leaderboard' },
 ];
 
-function StatCard({ icon, value, label, color }: { icon: string; value: string | number; label: string; color: string }) {
+function CompactStatItem({ icon, value, label, color, textColor, subColor }: { icon: string; value: string | number; label: string; color: string; textColor: string; subColor: string }) {
   return (
-    <View style={styles.statCard}>
-      <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
-        <MaterialCommunityIcons name={icon as any} size={24} color={color} />
+    <View style={styles.statItem}>
+      <View style={[styles.statIconSmall, { backgroundColor: color + '15' }]}>
+        <MaterialCommunityIcons name={icon as any} size={16} color={color} />
       </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <View style={styles.statContent}>
+        <Text style={[styles.statValueCompact, { color: textColor }]}>{value}</Text>
+        <Text style={[styles.statLabelCompact, { color: subColor }]}>{label}</Text>
+      </View>
     </View>
   );
 }
-const MemoStatCard = React.memo(StatCard);
 
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const colors = useColors();
   const { data: stats, status, refetch } = useApi<UserStatistics>('/api/statistics/me/');
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -51,121 +53,237 @@ export default function HomeScreen() {
   }, [refetch]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            colors={[colors.primary]} 
+            tintColor={colors.primary} 
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{t('home.greeting')}</Text>
-            <Text style={styles.welcomeText}>{t('home.welcomeText')}</Text>
+          <View style={styles.headerLeft}>
+            <Text style={[styles.greeting, { color: colors.textPrimary }]}>{t('home.greeting')}</Text>
+            <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>{t('home.welcomeText')}</Text>
           </View>
-          <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.notificationBtn}>
-            <MaterialCommunityIcons name="bell-outline" size={24} color={Colors.textPrimary} />
-            <View style={styles.notificationBadge} />
+          <TouchableOpacity 
+            onPress={() => router.push('/notifications')} 
+            style={[styles.notificationBtn, { backgroundColor: colors.surface }]} 
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="bell-outline" size={22} color={colors.textPrimary} />
+            <View style={[styles.notificationBadge, { backgroundColor: colors.error }]} />
           </TouchableOpacity>
         </View>
 
-        {/* Stats Overview */}
-        <Card style={styles.statsCard}>
-          <Card.Content>
-            <View style={styles.statsHeader}>
-              <Text style={styles.sectionTitle}>{t('home.yourProgress')}</Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/analytics')}>
-                <Text style={styles.viewAllText}>{t('home.viewDetails')}</Text>
-              </TouchableOpacity>
+        {/* Compact Stats Card */}
+        <TouchableOpacity 
+          style={[styles.statsCard, { backgroundColor: colors.surface }]} 
+          onPress={() => router.push('/(tabs)/analytics')}
+          activeOpacity={0.95}
+        >
+          <View style={styles.statsHeader}>
+            <Text style={[styles.statsTitle, { color: colors.textPrimary }]}>{t('home.yourProgress')}</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textSecondary} />
+          </View>
+          
+          {status === 'loading' ? (
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator size="small" color={colors.primary} />
             </View>
-            {status === 'loading' ? (
-              <ActivityIndicator size="small" color={Colors.primary} style={styles.loader} />
-            ) : (
-              <View style={styles.statsGrid}>
-                <MemoStatCard icon="fire" value={stats?.study_streak_days || 0} label={t('home.dayStreak')} color={Colors.error} />
-                <MemoStatCard icon="check-circle" value={stats?.questions_answered || 0} label={t('home.answered')} color={Colors.success} />
-                <MemoStatCard icon="percent" value={`${Number(stats?.accuracy_percentage ?? 0).toFixed(0)}%`} label={t('home.accuracy')} color={Colors.primary} />
-                <MemoStatCard icon="trophy" value={stats?.mock_tests_completed || 0} label={t('home.tests')} color={Colors.warning} />
-              </View>
-            )}
-          </Card.Content>
-        </Card>
+          ) : (
+            <View style={styles.statsGrid}>
+              <CompactStatItem
+                icon="fire"
+                value={stats?.study_streak_days || 0}
+                label={t('home.dayStreak')}
+                color={colors.secondary}
+                textColor={colors.textPrimary}
+                subColor={colors.textSecondary}
+              />
+              <CompactStatItem
+                icon="check-circle"
+                value={stats?.questions_answered || 0}
+                label={t('home.answered')}
+                color={colors.success}
+                textColor={colors.textPrimary}
+                subColor={colors.textSecondary}
+              />
+              <CompactStatItem
+                icon="percent"
+                value={`${Number(stats?.accuracy_percentage ?? 0).toFixed(0)}%`}
+                label={t('home.accuracy')}
+                color={colors.primary}
+                textColor={colors.textPrimary}
+                subColor={colors.textSecondary}
+              />
+              <CompactStatItem
+                icon="trophy"
+                value={stats?.mock_tests_completed || 0}
+                label={t('home.tests')}
+                color={colors.warning}
+                textColor={colors.textPrimary}
+                subColor={colors.textSecondary}
+              />
+            </View>
+          )}
+        </TouchableOpacity>
 
         {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>{t('home.quickActions')}</Text>
-        <View style={styles.actionsGrid}>
-          {quickActions.map((action) => (
-            <TouchableOpacity key={action.id} style={styles.actionCard} onPress={() => router.push(action.route as any)} activeOpacity={0.7}>
-              <View style={[styles.actionIconContainer, { backgroundColor: action.color }]}>
-                <MaterialCommunityIcons name={action.icon} size={28} color={Colors.white} />
-              </View>
-              <Text style={styles.actionTitle}>{t(action.titleKey)}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.actionsSection}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('home.quickActions')}</Text>
+          <View style={styles.actionsGrid}>
+            {quickActions.map((action) => (
+              <TouchableOpacity 
+                key={action.id} 
+                style={[styles.actionCard, { backgroundColor: colors.surface }]} 
+                onPress={() => router.push(action.route as any)} 
+                activeOpacity={0.8}
+              >
+                <View style={[styles.actionIconContainer, { backgroundColor: colors[action.colorKey] }]}>
+                  <MaterialCommunityIcons name={action.icon} size={24} color={colors.white} />
+                </View>
+                <Text style={[styles.actionTitle, { color: colors.textPrimary }]}>{t(action.titleKey)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        {/* Continue Learning */}
-        <Card style={styles.continueCard}>
-          <Card.Content style={styles.continueContent}>
-            <View style={styles.continueLeft}>
-              <MaterialCommunityIcons name="book-clock" size={40} color={Colors.primary} />
-            </View>
-            <View style={styles.continueCenter}>
-              <Text style={styles.continueTitle}>{t('home.continueLearning')}</Text>
-              <Text style={styles.continueSubtitle}>{t('home.pickUpWhereLeft')}</Text>
-            </View>
-            <Button mode="contained" compact onPress={() => router.push('/practice/categories')} style={styles.continueButton}>
-              {t('home.resume')}
-            </Button>
-          </Card.Content>
-        </Card>
+        {/* Continue Learning Card */}
+        <TouchableOpacity 
+          style={[styles.continueCard, { 
+            backgroundColor: colors.surface,
+            borderColor: colors.primaryLight + '20' 
+          }]} 
+          onPress={() => router.push('/practice/categories')}
+          activeOpacity={0.9}
+        >
+          <View style={[styles.continueIconWrapper, { backgroundColor: colors.primaryLight + '15' }]}>
+            <MaterialCommunityIcons name="book-open-page-variant" size={28} color={colors.primary} />
+          </View>
+          <View style={styles.continueContent}>
+            <Text style={[styles.continueTitle, { color: colors.textPrimary }]}>{t('home.continueLearning')}</Text>
+            <Text style={[styles.continueSubtitle, { color: colors.textSecondary }]}>{t('home.pickUpWhereLeft')}</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
+        </TouchableOpacity>
 
         {/* Daily Tip */}
-        <Card style={styles.tipCard}>
-          <Card.Content>
-            <View style={styles.tipHeader}>
-              <MaterialCommunityIcons name="lightbulb-on" size={24} color={Colors.warning} />
-              <Text style={styles.tipTitle}>{t('home.dailyTip')}</Text>
+        <View style={[styles.tipCard, { 
+          backgroundColor: colors.warning + '15',
+          borderLeftColor: colors.warning 
+        }]}>
+          <View style={styles.tipHeader}>
+            <View style={[styles.tipIconContainer, { backgroundColor: colors.surface }]}>
+              <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={colors.warning} />
             </View>
-            <Text style={styles.tipText}>{t('home.dailyTipText')}</Text>
-          </Card.Content>
-        </Card>
+            <Text style={[styles.tipTitle, { color: colors.textPrimary }]}>{t('home.dailyTip')}</Text>
+          </View>
+          <Text style={[styles.tipText, { color: colors.textSecondary }]}>{t('home.dailyTipText')}</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  scrollContent: { padding: Spacing.base, paddingBottom: Spacing['3xl'] },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
-  greeting: { fontSize: 28, fontWeight: '700', color: Colors.textPrimary },
-  welcomeText: { fontSize: 14, color: Colors.textSecondary, marginTop: 2 },
-  notificationBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center', elevation: 2 },
-  notificationBadge: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.error },
-  statsCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.xl, marginBottom: Spacing.xl, elevation: 2 },
-  statsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  viewAllText: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
-  loader: { marginVertical: Spacing.xl },
-  statsGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-  statCard: { alignItems: 'center', flex: 1 },
-  statIconContainer: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xs },
-  statValue: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
-  statLabel: { fontSize: 11, color: Colors.textSecondary },
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginTop: Spacing.md, marginBottom: Spacing.xl },
-  actionCard: { width: '47%', backgroundColor: Colors.white, borderRadius: BorderRadius.lg, padding: Spacing.base, alignItems: 'center', elevation: 2 },
-  actionIconContainer: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
-  actionTitle: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
-  continueCard: { backgroundColor: Colors.primaryLight + '30', borderRadius: BorderRadius.lg, marginBottom: Spacing.lg },
-  continueContent: { flexDirection: 'row', alignItems: 'center' },
-  continueLeft: { marginRight: Spacing.md },
-  continueCenter: { flex: 1 },
-  continueTitle: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
-  continueSubtitle: { fontSize: 13, color: Colors.textSecondary },
-  continueButton: { borderRadius: BorderRadius.md },
-  tipCard: { backgroundColor: Colors.warningLight, borderRadius: BorderRadius.lg },
-  tipHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
-  tipTitle: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, marginLeft: Spacing.sm },
-  tipText: { fontSize: 14, color: Colors.textSecondary, lineHeight: 20 },
+  container: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 32 },
+  
+  // Header
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  headerLeft: { flex: 1 },
+  greeting: { fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
+  welcomeText: { fontSize: 14, marginTop: 4 },
+  notificationBtn: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2
+  },
+  notificationBadge: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4 },
+
+  // Compact Stats Card
+  statsCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2
+  },
+  statsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  statsTitle: { fontSize: 16, fontWeight: '700' },
+  loaderContainer: { paddingVertical: 20, alignItems: 'center' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
+  statItem: { width: '50%', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 8 },
+  statIconSmall: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  statContent: { flex: 1 },
+  statValueCompact: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  statLabelCompact: { fontSize: 11, marginTop: 1 },
+
+  // Actions Section
+  actionsSection: { marginBottom: 20 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  actionsGrid: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  justifyContent: 'space-between', // important
+},
+
+actionCard: { 
+  width: '48%',           // clean 2 columns
+  borderRadius: 16,
+  padding: 20,
+  alignItems: 'center',
+  marginBottom: 12,       // vertical spacing only
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.04,
+  shadowRadius: 8,
+  elevation: 2
+},
+
+  actionIconContainer: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  actionTitle: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
+
+  // Continue Learning Card
+  continueCard: { 
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2
+  },
+  continueIconWrapper: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  continueContent: { flex: 1 },
+  continueTitle: { fontSize: 15, fontWeight: '600', marginBottom: 2 },
+  continueSubtitle: { fontSize: 13 },
+
+  // Tip Card
+  tipCard: { borderRadius: 16, padding: 16, borderLeftWidth: 4 },
+  tipHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  tipIconContainer: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  tipTitle: { fontSize: 14, fontWeight: '600' },
+  tipText: { fontSize: 14, lineHeight: 20, marginLeft: 40 },
 });

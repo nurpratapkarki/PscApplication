@@ -7,8 +7,6 @@ import {
   login as apiLogin,
   googleLogin as apiGoogleLogin,
   logout as apiLogout,
-  devLogin as apiDevLogin,
-  regularLogin as apiRegularLogin,
   register as apiRegister,
 } from '../services/api/auth';
 import { getCurrentUserProfile } from '../services/api/profile';
@@ -85,40 +83,6 @@ export function useAuth() {
     }
   }, [setAuth, setLoading]);
 
-  // Dev login (for development only)
-  const devLogin = useCallback(async (email: string, password?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await apiDevLogin(email, password);
-      const profile = await getCurrentUserProfile(response.access);
-      setAuth(profile, { access: response.access, refresh: response.refresh });
-      return response;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Dev login failed';
-      setError(errorMessage);
-      setLoading(false);
-      throw err;
-    }
-  }, [setAuth, setLoading]);
-
-  // Regular login for users who signed up with username/password
-  const regularLogin = useCallback(async (email: string, password: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await apiRegularLogin(email, password);
-      const profile = await getCurrentUserProfile(response.access);
-      setAuth(profile, { access: response.access, refresh: response.refresh });
-      return response;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Login failed';
-      setError(errorMessage);
-      setLoading(false);
-      throw err;
-    }
-  }, [setAuth, setLoading]);
-
   // Register and auto-login
   const register = useCallback(async (data: RegistrationRequest) => {
     setLoading(true);
@@ -167,8 +131,6 @@ export function useAuth() {
     error,
     login,
     googleLogin,
-    devLogin,
-    regularLogin,
     register,
     logout,
     refreshUser,

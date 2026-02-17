@@ -6,8 +6,6 @@ export const API_BASE_URL =
 export const API_ENDPOINTS = {
 	auth: {
 	  user: "/api/auth/user/",
-	  devLogin: "/api/auth/dev-login/",
-	  regularLogin: "/api/auth/regular-login/",
 	  login: "/api/auth/login/",
 	  logout: "/api/auth/logout/",
 	  registration: "/api/auth/registration/",
@@ -15,6 +13,7 @@ export const API_ENDPOINTS = {
 	  tokenObtainPair: "/token/",
 	  tokenRefresh: "/token/refresh/",
 	  tokenBlacklist: "/token/blacklist/",
+	  passwordChange: "/api/auth/password/change/",
 	},
 	branches: {
 	  list: "/api/branches/",

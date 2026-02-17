@@ -4,7 +4,10 @@ import { Text, Button, Card, RadioButton, ActivityIndicator, Chip } from 'react-
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import { useTranslation } from 'react-i18next';
+import { useColors } from '../../hooks/useColors';
+import { useLocalizedField } from '../../hooks/useLocalizedField';
+import { ColorScheme } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
 import { useApi } from '../../hooks/useApi';
 import { Branch, SubBranch } from '../../types/category.types';
@@ -13,6 +16,10 @@ import { getAccessToken } from '../../services/api/client';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const colors = useColors();
+  const lf = useLocalizedField();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const [step, setStep] = useState<'branch' | 'subbranch' | 'complete'>('branch');
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [selectedSubBranch, setSelectedSubBranch] = useState<SubBranch | null>(null);
@@ -50,7 +57,7 @@ export default function ProfileSetupScreen() {
       );
       router.replace('/(tabs)');
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to save profile. Please try again.');
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('auth.profileSetup.saveFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -58,17 +65,15 @@ export default function ProfileSetupScreen() {
 
   const renderBranchSelection = () => (
     <View style={styles.selectionContainer}>
-      <Text style={styles.stepTitle}>Select Your Target Branch</Text>
-      <Text style={styles.stepSubtitle}>
-        कृपया आफ्नो लक्षित शाखा छान्नुहोस्
-      </Text>
+      <Text style={styles.stepTitle}>{t('auth.profileSetup.selectBranchTitle')}</Text>
+      <Text style={styles.stepSubtitle}>{t('auth.profileSetup.selectBranchSubtitle')}</Text>
 
       {status === 'loading' && (
-        <ActivityIndicator size="large" color={Colors.primary} style={styles.loader} />
+        <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
       )}
 
       {status === 'error' && (
-        <Text style={styles.errorText}>Failed to load branches: {error}</Text>
+        <Text style={styles.errorText}>{t('auth.profileSetup.loadBranchesFailed', { error })}</Text>
       )}
 
       {branches && (
@@ -96,21 +101,23 @@ export default function ProfileSetupScreen() {
                       <MaterialCommunityIcons
                         name={getBranchIcon(branch.slug)}
                         size={28}
-                        color={selectedBranch?.id === branch.id ? Colors.white : Colors.primary}
+                        color={selectedBranch?.id === branch.id ? colors.white : colors.primary}
                       />
                     </View>
                     <RadioButton
                       value={String(branch.id)}
                       status={selectedBranch?.id === branch.id ? 'checked' : 'unchecked'}
                       onPress={() => handleBranchSelect(branch)}
-                      color={Colors.primary}
+                      color={colors.primary}
                     />
                   </View>
-                  <Text style={styles.branchName}>{branch.name_en}</Text>
-                  <Text style={styles.branchNameNp}>{branch.name_np}</Text>
+                  <Text style={styles.branchName}>{lf(branch.name_en, branch.name_np)}</Text>
+                  {branch.name_en && branch.name_np && branch.name_en !== branch.name_np && (
+                    <Text style={styles.branchNameNp}>{branch.name_np}</Text>
+                  )}
                   {branch.description_en && (
                     <Text style={styles.branchDesc} numberOfLines={2}>
-                      {branch.description_en}
+                      {lf(branch.description_en, branch.description_np)}
                     </Text>
                   )}
                   {branch.has_sub_branches && (
@@ -119,7 +126,7 @@ export default function ProfileSetupScreen() {
                       style={styles.subBranchChip}
                       textStyle={styles.subBranchChipText}
                     >
-                      {branch.sub_branches?.length || 0} Sub-branches
+                      {t('auth.profileSetup.subBranches', { count: branch.sub_branches?.length || 0 })}
                     </Chip>
                   )}
                 </Card.Content>
@@ -133,9 +140,9 @@ export default function ProfileSetupScreen() {
 
   const renderSubBranchSelection = () => (
     <View style={styles.selectionContainer}>
-      <Text style={styles.stepTitle}>Select Your Specialization</Text>
+      <Text style={styles.stepTitle}>{t('auth.profileSetup.selectSubBranchTitle')}</Text>
       <Text style={styles.stepSubtitle}>
-        Choose your specific area under {selectedBranch?.name_en}
+        {t('auth.profileSetup.selectSubBranchSubtitle', { branch: lf(selectedBranch?.name_en || '', selectedBranch?.name_np || '') })}
       </Text>
 
       <View style={styles.cardsContainer}>
@@ -153,14 +160,16 @@ export default function ProfileSetupScreen() {
             >
               <Card.Content style={styles.subCardContent}>
                 <View style={styles.subCardLeft}>
-                  <Text style={styles.subBranchName}>{subBranch.name_en}</Text>
-                  <Text style={styles.subBranchNameNp}>{subBranch.name_np}</Text>
+                  <Text style={styles.subBranchName}>{lf(subBranch.name_en, subBranch.name_np)}</Text>
+                  {subBranch.name_en && subBranch.name_np && subBranch.name_en !== subBranch.name_np && (
+                    <Text style={styles.subBranchNameNp}>{subBranch.name_np}</Text>
+                  )}
                 </View>
                 <RadioButton
                   value={String(subBranch.id)}
                   status={selectedSubBranch?.id === subBranch.id ? 'checked' : 'unchecked'}
                   onPress={() => setSelectedSubBranch(subBranch)}
-                  color={Colors.primary}
+                  color={colors.primary}
                 />
               </Card.Content>
             </Card>
@@ -169,7 +178,7 @@ export default function ProfileSetupScreen() {
       </View>
 
       <Button mode="text" onPress={() => setStep('branch')} style={styles.backButton}>
-        ← Back to Branches
+        {t('auth.profileSetup.backToBranches')}
       </Button>
     </View>
   );
@@ -177,24 +186,24 @@ export default function ProfileSetupScreen() {
   const renderComplete = () => (
     <View style={styles.completeContainer}>
       <View style={styles.successIcon}>
-        <MaterialCommunityIcons name="check-circle" size={80} color={Colors.success} />
+        <MaterialCommunityIcons name="check-circle" size={80} color={colors.success} />
       </View>
-      <Text style={styles.completeTitle}>You&apos;re All Set!</Text>
-      <Text style={styles.completeSubtitle}>तपाईंको प्रोफाइल तयार छ!</Text>
+      <Text style={styles.completeTitle}>{t('auth.profileSetup.completeTitle')}</Text>
+      <Text style={styles.completeSubtitle}>{t('auth.profileSetup.completeSubtitle')}</Text>
 
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryLabel}>Selected Branch:</Text>
-        <Text style={styles.summaryValue}>{selectedBranch?.name_en}</Text>
+        <Text style={styles.summaryLabel}>{t('auth.profileSetup.selectedBranch')}</Text>
+        <Text style={styles.summaryValue}>{lf(selectedBranch?.name_en || '', selectedBranch?.name_np || '')}</Text>
         {selectedSubBranch && (
           <>
-            <Text style={styles.summaryLabel}>Specialization:</Text>
-            <Text style={styles.summaryValue}>{selectedSubBranch.name_en}</Text>
+            <Text style={styles.summaryLabel}>{t('auth.profileSetup.selectedSubBranch')}</Text>
+            <Text style={styles.summaryValue}>{lf(selectedSubBranch.name_en, selectedSubBranch.name_np)}</Text>
           </>
         )}
       </View>
 
       <Text style={styles.completeDesc}>
-        You can change these preferences anytime from your profile settings.
+        {t('auth.profileSetup.completeDesc')}
       </Text>
     </View>
   );
@@ -247,57 +256,57 @@ export default function ProfileSetupScreen() {
           style={styles.actionButton}
           contentStyle={styles.actionButtonContent}
         >
-          {step === 'complete' ? 'Start Learning' : 'Continue'}
+          {step === 'complete' ? t('auth.profileSetup.startLearning') : t('auth.profileSetup.continue')}
         </Button>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (colors: ColorScheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   progressContainer: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: Spacing.lg, paddingHorizontal: Spacing['2xl'],
   },
   progressDot: {
-    width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.border,
+    width: 12, height: 12, borderRadius: 6, backgroundColor: colors.border,
   },
-  activeDot: { backgroundColor: Colors.primary, width: 14, height: 14, borderRadius: 7 },
-  progressLine: { flex: 1, height: 2, backgroundColor: Colors.border, marginHorizontal: Spacing.sm },
+  activeDot: { backgroundColor: colors.primary, width: 14, height: 14, borderRadius: 7 },
+  progressLine: { flex: 1, height: 2, backgroundColor: colors.border, marginHorizontal: Spacing.sm },
   scrollContent: { flexGrow: 1, paddingHorizontal: Spacing.xl, paddingBottom: 100 },
   selectionContainer: { flex: 1 },
-  stepTitle: { fontSize: 24, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.xs },
-  stepSubtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: Spacing.xl },
+  stepTitle: { fontSize: 24, fontWeight: '700', color: colors.textPrimary, marginBottom: Spacing.xs },
+  stepSubtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: Spacing.xl },
   loader: { marginTop: Spacing['2xl'] },
-  errorText: { color: Colors.error, textAlign: 'center', marginTop: Spacing.xl },
+  errorText: { color: colors.error, textAlign: 'center', marginTop: Spacing.xl },
   cardsContainer: { gap: Spacing.md },
-  branchCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.lg, borderWidth: 2, borderColor: 'transparent' },
-  selectedCard: { borderColor: Colors.primary, backgroundColor: Colors.infoLight },
+  branchCard: { backgroundColor: colors.cardBackground, borderRadius: BorderRadius.lg, borderWidth: 2, borderColor: 'transparent' },
+  selectedCard: { borderColor: colors.primary, backgroundColor: colors.infoLight },
   cardContent: { padding: Spacing.base },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
-  iconCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: Colors.primaryLight + '20', alignItems: 'center', justifyContent: 'center' },
-  selectedIconCircle: { backgroundColor: Colors.primary },
-  branchName: { fontSize: 18, fontWeight: '600', color: Colors.textPrimary },
-  branchNameNp: { fontSize: 14, color: Colors.primary, marginBottom: Spacing.xs },
-  branchDesc: { fontSize: 13, color: Colors.textSecondary, marginBottom: Spacing.sm },
-  subBranchChip: { alignSelf: 'flex-start', backgroundColor: Colors.accentLight },
-  subBranchChipText: { fontSize: 11, color: Colors.accentDark },
-  subBranchCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.md, borderWidth: 2, borderColor: 'transparent' },
+  iconCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.primaryLight + '20', alignItems: 'center', justifyContent: 'center' },
+  selectedIconCircle: { backgroundColor: colors.primary },
+  branchName: { fontSize: 18, fontWeight: '600', color: colors.textPrimary },
+  branchNameNp: { fontSize: 14, color: colors.primary, marginBottom: Spacing.xs },
+  branchDesc: { fontSize: 13, color: colors.textSecondary, marginBottom: Spacing.sm },
+  subBranchChip: { alignSelf: 'flex-start', backgroundColor: colors.accentLight },
+  subBranchChipText: { fontSize: 11, color: colors.accentDark },
+  subBranchCard: { backgroundColor: colors.cardBackground, borderRadius: BorderRadius.md, borderWidth: 2, borderColor: 'transparent' },
   subCardContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   subCardLeft: { flex: 1 },
-  subBranchName: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
-  subBranchNameNp: { fontSize: 13, color: Colors.textSecondary },
+  subBranchName: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
+  subBranchNameNp: { fontSize: 13, color: colors.textSecondary },
   backButton: { marginTop: Spacing.lg },
   completeContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing['2xl'] },
   successIcon: { marginBottom: Spacing.xl },
-  completeTitle: { fontSize: 28, fontWeight: '700', color: Colors.textPrimary },
-  completeSubtitle: { fontSize: 18, color: Colors.primary, marginBottom: Spacing.xl },
-  summaryCard: { backgroundColor: Colors.white, padding: Spacing.xl, borderRadius: BorderRadius.lg, width: '100%', marginBottom: Spacing.xl },
-  summaryLabel: { fontSize: 12, color: Colors.textSecondary, marginBottom: Spacing.xs },
-  summaryValue: { fontSize: 18, fontWeight: '600', color: Colors.textPrimary, marginBottom: Spacing.md },
-  completeDesc: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
-  bottomAction: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: Colors.white, padding: Spacing.xl, borderTopWidth: 1, borderTopColor: Colors.border },
+  completeTitle: { fontSize: 28, fontWeight: '700', color: colors.textPrimary },
+  completeSubtitle: { fontSize: 18, color: colors.primary, marginBottom: Spacing.xl },
+  summaryCard: { backgroundColor: colors.cardBackground, padding: Spacing.xl, borderRadius: BorderRadius.lg, width: '100%', marginBottom: Spacing.xl },
+  summaryLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: Spacing.xs },
+  summaryValue: { fontSize: 18, fontWeight: '600', color: colors.textPrimary, marginBottom: Spacing.md },
+  completeDesc: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
+  bottomAction: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.cardBackground, padding: Spacing.xl, borderTopWidth: 1, borderTopColor: colors.border },
   actionButton: { borderRadius: BorderRadius.lg },
   actionButtonContent: { paddingVertical: Spacing.sm },
 });

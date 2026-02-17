@@ -118,7 +118,46 @@ Single Django app (`src`) registered as `src.apps.SrcConfig`. All models, signal
 
 - **Single migration file** — All 21 models live in `0001_initial.py`. Be careful with model changes; always run `just makemigrations` after changes and verify the result.
 - **Frontend .env** points to a local IP (`EXPO_PUBLIC_API_BASE_URL=http://192.168.1.87:8000`) — update for your network.
-- **`react-i18next`** is in `package.json` but NOT configured — bilingual content is handled manually via `_en`/`_np` model fields.
+- **`react-i18next`** is fully configured — i18n/index.ts initializes it, I18nextProvider wraps app, EN/NP locale files in i18n/locales/, all 35+ screens use useTranslation().
 - **Frontend has no automated tests.**
 - **API client uses `fetch`**, not Axios, despite some documentation examples mentioning Axios.
 - **Celery `__init__.py`** exports `celery_app` — `src/__init__.py` contains `from .celery import app as celery_app`.
+
+## Completed Work (Sessions Feb 2026)
+
+**All major feature work is done. Summary of what was implemented:**
+1. **Settings page** — all toggles wired to Zustand settingsStore (darkMode, language, notifications, soundEffects)
+2. **Change password** — new `app/profile/change-password.tsx` screen + `changePassword()` in auth.ts + `auth.passwordChange` endpoint in api.config.ts
+3. **Dark mode** — `useColors()` hook in `hooks/useColors.ts`, `DarkColors` in `constants/colors.ts`, all 35+ screens converted with dynamic colors
+4. **i18n (react-i18next)** — fully configured in `i18n/index.ts`, `I18nextProvider` in `app/_layout.tsx`, EN/NP locale files with ~450 keys, all screens use `useTranslation()` + `useLocalizedField()`
+5. **Registration 400 fix** — `CustomRegisterSerializer` in `PSCApp/src/api/auth/serializers.py`, registered via `REST_AUTH.REGISTER_SERIALIZER` in `base.py`
+6. **notifications/index.tsx** — fixed runtime error: `getNotificationIcon` was using `colors.success` but now uses static `Colors.success`; full dark mode + i18n applied
+7. **instructions.tsx** — added 3 missing i18n keys: `tests.instructionContainsQuestions`, `tests.instructionTimeLimit`, `tests.instructionPassPercent` (with interpolation)
+8. **preferences.tsx + statistics.tsx** — rewritten with full dark mode + i18n support
+
+## Dark Mode Pattern (for future screens)
+
+```typescript
+// 1. Import hooks
+import { useColors } from '@/hooks/useColors';
+import { Colors } from '@/constants/colors';
+
+// 2. Get dynamic colors
+const colors = useColors();
+
+// 3. StyleSheet for layout only (no theme-sensitive colors)
+const styles = StyleSheet.create({ container: { flex: 1, padding: 16 } });
+
+// 4. Apply theme colors inline
+<View style={[styles.container, { backgroundColor: colors.background }]}>
+  <Text style={{ color: colors.textPrimary }}>Title</Text>
+  <Text style={{ color: colors.textSecondary }}>Subtitle</Text>
+</View>
+
+// 5. Brand/semantic colors (don't change in dark mode) — use static Colors
+<MaterialCommunityIcons color={Colors.primary} />  // not colors.primary
+```
+
+**DarkColors only overrides:** `background`, `surface`, `surfaceVariant`, `textPrimary`, `textSecondary`, `textTertiary`, `border`, `borderDark`, `cardBackground`, `cardBorder`
+
+**Brand colors stay constant:** `primary`, `secondary`, `accent`, `success`, `error`, `warning`, `info`, and all their variants

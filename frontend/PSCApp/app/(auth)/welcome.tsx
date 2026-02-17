@@ -11,7 +11,9 @@ import { Text, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import { useTranslation } from 'react-i18next';
+import { useColors } from '../../hooks/useColors';
+import { ColorScheme } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
 
 const { width, height } = Dimensions.get('window');
@@ -19,44 +21,45 @@ const { width, height } = Dimensions.get('window');
 interface OnboardingSlide {
   id: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  title: string;
-  titleNp: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   color: string;
 }
 
-const slides: OnboardingSlide[] = [
-  {
-    id: '1',
-    icon: 'book-education',
-    title: 'Master PSC Exams',
-    titleNp: 'PSC परीक्षामा सफल हुनुहोस्',
-    description: 'Prepare for Nasu, Kharidar, Technical, and Engineering positions with our comprehensive question bank.',
-    color: Colors.primary,
-  },
-  {
-    id: '2',
-    icon: 'clipboard-text-clock',
-    title: 'Take Mock Tests',
-    titleNp: 'अभ्यास परीक्षा दिनुहोस्',
-    description: 'Practice with authentic PSC timing patterns and get instant results with detailed analysis.',
-    color: Colors.accent,
-  },
-  {
-    id: '3',
-    icon: 'account-group',
-    title: 'Learn Together',
-    titleNp: 'सँगै सिक्नुहोस्',
-    description: 'Contribute questions, compete on leaderboards, and help fellow aspirants succeed.',
-    color: Colors.secondary,
-  },
-];
-
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
+  const colors = useColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
+  const otherLanguage = i18n.language === 'EN' ? 'NP' : 'EN';
+  const tOther = (key: string) => t(key, { lng: otherLanguage });
+
+  const slides: OnboardingSlide[] = [
+    {
+      id: '1',
+      icon: 'book-education',
+      titleKey: 'auth.onboarding.slide1Title',
+      descriptionKey: 'auth.onboarding.slide1Description',
+      color: colors.primary,
+    },
+    {
+      id: '2',
+      icon: 'clipboard-text-clock',
+      titleKey: 'auth.onboarding.slide2Title',
+      descriptionKey: 'auth.onboarding.slide2Description',
+      color: colors.accent,
+    },
+    {
+      id: '3',
+      icon: 'account-group',
+      titleKey: 'auth.onboarding.slide3Title',
+      descriptionKey: 'auth.onboarding.slide3Description',
+      color: colors.secondary,
+    },
+  ];
 
   const viewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
@@ -81,11 +84,11 @@ export default function WelcomeScreen() {
   const renderSlide = ({ item }: { item: OnboardingSlide }) => (
     <View style={[styles.slide, { width }]}>
       <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-        <MaterialCommunityIcons name={item.icon} size={100} color={Colors.white} />
+        <MaterialCommunityIcons name={item.icon} size={100} color={colors.white} />
       </View>
-      <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.titleNp}>{item.titleNp}</Text>
-      <Text style={styles.description}>{item.description}</Text>
+      <Text style={styles.title}>{t(item.titleKey)}</Text>
+      <Text style={styles.titleNp}>{tOther(item.titleKey)}</Text>
+      <Text style={styles.description}>{t(item.descriptionKey)}</Text>
     </View>
   );
 
@@ -106,7 +109,7 @@ export default function WelcomeScreen() {
         return (
           <Animated.View
             key={index}
-            style={[styles.dot, { width: dotWidth, opacity, backgroundColor: Colors.primary }]}
+            style={[styles.dot, { width: dotWidth, opacity, backgroundColor: colors.primary }]}
           />
         );
       })}
@@ -116,8 +119,8 @@ export default function WelcomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.skipContainer}>
-        <Button mode="text" onPress={handleSkip} textColor={Colors.textSecondary}>
-          Skip
+        <Button mode="text" onPress={handleSkip} textColor={colors.textSecondary}>
+          {t('auth.skip')}
         </Button>
       </View>
 
@@ -147,17 +150,17 @@ export default function WelcomeScreen() {
           contentStyle={styles.buttonContent}
           labelStyle={styles.buttonLabel}
         >
-          {currentIndex === slides.length - 1 ? 'Get Started' : 'Next'}
+          {currentIndex === slides.length - 1 ? t('auth.getStarted') : t('auth.next')}
         </Button>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorScheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   skipContainer: {
     alignItems: 'flex-end',
@@ -178,7 +181,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: Spacing['2xl'],
     elevation: 8,
-    shadowColor: Colors.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -186,20 +189,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: Spacing.xs,
   },
   titleNp: {
     fontSize: 20,
     fontWeight: '500',
-    color: Colors.primary,
+    color: colors.primary,
     textAlign: 'center',
     marginBottom: Spacing.base,
   },
   description: {
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
     paddingHorizontal: Spacing.base,

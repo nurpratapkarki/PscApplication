@@ -66,7 +66,7 @@
 - [ ] **D1. WebSocket notifications** - Backend configured, need frontend integration
 - [ ] **D2. Push notifications** - expo-notifications is installed, needs Firebase setup
 - [ ] **D3. Offline caching** - AsyncStorage for practice mode
-- [ ] **D4. Dark mode**
+- [x] **D4. Dark mode** - useColors() hook, DarkColors override, all 35+ screens converted (dark mode + i18n)
 - [ ] **D5. Performance monitoring** - Sentry integration
 - [ ] **D6. Analytics** - Firebase Analytics or similar
 

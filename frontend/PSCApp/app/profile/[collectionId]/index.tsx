@@ -4,11 +4,14 @@ import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Card, Text, ActivityIndicator, Chip, IconButton, Menu, Divider, FAB } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useApi } from '../../../hooks/useApi';
 import { usePaginatedApi } from '../../../hooks/usePaginatedApi';
 import { StudyCollection } from '../../../types/contribution.types';
 import { Question, DifficultyLevel } from '../../../types/question.types';
-import { Colors } from '../../../constants/colors';
+import { useColors } from '../../../hooks/useColors';
+import { useLocalizedField } from '../../../hooks/useLocalizedField';
+import { ColorScheme } from '../../../constants/colors';
 import { Spacing, BorderRadius } from '../../../constants/typography';
 import { removeQuestionsFromCollection } from '../../../services/api/stats';
 import { getAccessToken } from '../../../services/api/client';
@@ -19,15 +22,15 @@ interface QuestionItemProps {
   onRemove: () => void;
 }
 
-const QuestionItem: React.FC<QuestionItemProps> = ({ question, onPress, onRemove }) => {
+const QuestionItem: React.FC<QuestionItemProps & { colors: ColorScheme; t: (key: string, options?: any) => string; lf: ReturnType<typeof useLocalizedField>; styles: ReturnType<typeof createStyles> }> = ({ question, onPress, onRemove, colors, t, lf, styles }) => {
   const [menuVisible, setMenuVisible] = useState(false);
 
   const getDifficultyColor = (difficulty: DifficultyLevel | null | undefined): string => {
     switch (difficulty?.toUpperCase()) {
-      case 'EASY': return Colors.success;
-      case 'MEDIUM': return Colors.warning;
-      case 'HARD': return Colors.error;
-      default: return Colors.textSecondary;
+      case 'EASY': return colors.success;
+      case 'MEDIUM': return colors.warning;
+      case 'HARD': return colors.error;
+      default: return colors.textSecondary;
     }
   };
 
@@ -37,7 +40,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({ question, onPress, onRemove
         <Card.Content style={styles.questionContent}>
           <View style={styles.questionMain}>
             <Text style={styles.questionText} numberOfLines={2}>
-              {question.question_text_en}
+              {lf(question.question_text_en, question.question_text_np)}
             </Text>
             <View style={styles.questionMeta}>
               <Chip 
@@ -63,15 +66,15 @@ const QuestionItem: React.FC<QuestionItemProps> = ({ question, onPress, onRemove
           >
             <Menu.Item 
               onPress={() => { setMenuVisible(false); onPress(); }} 
-              title="View Details" 
+              title={t('profile.viewDetails')} 
               leadingIcon="eye"
             />
             <Divider />
             <Menu.Item 
               onPress={() => { setMenuVisible(false); onRemove(); }} 
-              title="Remove" 
+              title={t('common.delete')} 
               leadingIcon="delete"
-              titleStyle={{ color: Colors.error }}
+              titleStyle={{ color: colors.error }}
             />
           </Menu>
         </Card.Content>
@@ -82,6 +85,10 @@ const QuestionItem: React.FC<QuestionItemProps> = ({ question, onPress, onRemove
 
 export default function CollectionDetailsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const colors = useColors();
+  const lf = useLocalizedField();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { collectionId } = useLocalSearchParams<{ collectionId: string }>();
   
   const { data: collection, status: collectionStatus } = useApi<StudyCollection>(
@@ -98,12 +105,12 @@ export default function CollectionDetailsScreen() {
 
   const handleRemoveQuestion = (questionId: number) => {
     Alert.alert(
-      'Remove Question',
-      'Are you sure you want to remove this question from the collection?',
+      t('profile.removeQuestion'),
+      t('profile.removeQuestionConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -111,7 +118,7 @@ export default function CollectionDetailsScreen() {
               await removeQuestionsFromCollection(parseInt(collectionId), [questionId], token);
               refetch();
             } catch (err) {
-              Alert.alert('Error', err instanceof Error ? err.message : 'Failed to remove question.');
+              Alert.alert(t('common.error'), err instanceof Error ? err.message : t('profile.removeQuestionFailed'));
             }
           }
         },
@@ -120,11 +127,11 @@ export default function CollectionDetailsScreen() {
   };
 
   const handleAddQuestions = () => {
-    Alert.alert('Add Questions', 'Add questions functionality coming soon');
+    Alert.alert(t('profile.addQuestions'), t('profile.addQuestionsSoon'));
   };
 
   const handleEditCollection = () => {
-    Alert.alert('Edit Collection', 'Edit collection functionality coming soon');
+    Alert.alert(t('profile.editCollection'), t('profile.editCollectionSoon'));
   };
 
   const isLoading = collectionStatus === 'loading' || questionsStatus === 'loading';
@@ -132,12 +139,12 @@ export default function CollectionDetailsScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
 
-  const iconColor = collection?.color_code || Colors.primary;
+  const iconColor = collection?.color_code || colors.primary;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -146,11 +153,11 @@ export default function CollectionDetailsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.textPrimary} />
+          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>Collection</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>{t('profile.collection')}</Text>
         <TouchableOpacity onPress={handleEditCollection} style={styles.editButton}>
-          <MaterialCommunityIcons name="pencil" size={20} color={Colors.primary} />
+          <MaterialCommunityIcons name="pencil" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -169,7 +176,7 @@ export default function CollectionDetailsScreen() {
               <View style={styles.titleRow}>
                 <Text style={styles.collectionName}>{collection.name}</Text>
                 {collection.is_private && (
-                  <Chip compact icon="lock" style={styles.privateChip}>Private</Chip>
+                  <Chip compact icon="lock" style={styles.privateChip}>{t('profile.private')}</Chip>
                 )}
               </View>
               {collection.description && (
@@ -177,8 +184,8 @@ export default function CollectionDetailsScreen() {
               )}
               <View style={styles.statsRow}>
                 <View style={styles.statItem}>
-                  <MaterialCommunityIcons name="file-document-outline" size={16} color={Colors.textSecondary} />
-                  <Text style={styles.statText}>{collection.question_count} questions</Text>
+                  <MaterialCommunityIcons name="file-document-outline" size={16} color={colors.textSecondary} />
+                  <Text style={styles.statText}>{collection.question_count} {t('common.questions')}</Text>
                 </View>
               </View>
             </View>
@@ -189,11 +196,9 @@ export default function CollectionDetailsScreen() {
       {/* Questions List */}
       {!questions || questions.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons name="file-document-outline" size={80} color={Colors.textTertiary} />
-          <Text style={styles.emptyTitle}>No Questions Yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Add questions to this collection to start studying
-          </Text>
+          <MaterialCommunityIcons name="file-document-outline" size={80} color={colors.textTertiary} />
+          <Text style={styles.emptyTitle}>{t('profile.noQuestions')}</Text>
+          <Text style={styles.emptySubtitle}>{t('profile.noQuestionsSubtitle')}</Text>
         </View>
       ) : (
         <FlatList
@@ -203,8 +208,8 @@ export default function CollectionDetailsScreen() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View style={styles.listHeader}>
-              <Text style={styles.listTitle}>Questions</Text>
-              <Text style={styles.listCount}>{questions.length} items</Text>
+              <Text style={styles.listTitle}>{t('common.questions')}</Text>
+              <Text style={styles.listCount}>{t('profile.itemsCount', { count: questions.length })}</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -212,6 +217,10 @@ export default function CollectionDetailsScreen() {
               question={item}
               onPress={() => handleQuestionPress(item)}
               onRemove={() => handleRemoveQuestion(item.id)}
+              colors={colors}
+              t={t}
+              lf={lf}
+              styles={styles}
             />
           )}
         />
@@ -222,16 +231,16 @@ export default function CollectionDetailsScreen() {
         icon="plus"
         style={styles.fab}
         onPress={handleAddQuestions}
-        color={Colors.white}
-        label="Add Questions"
+        color={colors.white}
+        label={t('profile.addQuestions')}
       />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+const createStyles = (colors: ColorScheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   header: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
@@ -242,23 +251,23 @@ const styles = StyleSheet.create({
     width: 44, 
     height: 44, 
     borderRadius: 22, 
-    backgroundColor: Colors.white, 
+    backgroundColor: colors.cardBackground, 
     alignItems: 'center', 
     justifyContent: 'center', 
     elevation: 2,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, flex: 1, textAlign: 'center' },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, flex: 1, textAlign: 'center' },
   editButton: { 
     width: 44, 
     height: 44, 
     borderRadius: 22, 
-    backgroundColor: Colors.primaryLight + '30', 
+    backgroundColor: colors.primaryLight + '30', 
     alignItems: 'center', 
     justifyContent: 'center',
   },
   infoCard: { 
     marginHorizontal: Spacing.base, 
-    backgroundColor: Colors.white, 
+    backgroundColor: colors.cardBackground, 
     borderRadius: BorderRadius.xl, 
     marginBottom: Spacing.lg,
     elevation: 2,
@@ -274,15 +283,15 @@ const styles = StyleSheet.create({
   },
   collectionDetails: { flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Spacing.sm },
-  collectionName: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
-  privateChip: { backgroundColor: Colors.surfaceVariant },
-  collectionDescription: { fontSize: 14, color: Colors.textSecondary, marginTop: Spacing.xs },
+  collectionName: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
+  privateChip: { backgroundColor: colors.surfaceVariant },
+  collectionDescription: { fontSize: 14, color: colors.textSecondary, marginTop: Spacing.xs },
   statsRow: { flexDirection: 'row', marginTop: Spacing.md },
   statItem: { flexDirection: 'row', alignItems: 'center' },
-  statText: { fontSize: 13, color: Colors.textSecondary, marginLeft: 4 },
+  statText: { fontSize: 13, color: colors.textSecondary, marginLeft: 4 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
-  emptyTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, marginTop: Spacing.lg },
-  emptySubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.xs },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginTop: Spacing.lg },
+  emptySubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.xs },
   listContent: { paddingHorizontal: Spacing.base, paddingBottom: 100 },
   listHeader: { 
     flexDirection: 'row', 
@@ -290,24 +299,24 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     marginBottom: Spacing.md,
   },
-  listTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  listCount: { fontSize: 13, color: Colors.textSecondary },
+  listTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  listCount: { fontSize: 13, color: colors.textSecondary },
   questionCard: { 
-    backgroundColor: Colors.white, 
+    backgroundColor: colors.cardBackground, 
     borderRadius: BorderRadius.lg, 
     marginBottom: Spacing.sm, 
     elevation: 1,
   },
   questionContent: { flexDirection: 'row', alignItems: 'center' },
   questionMain: { flex: 1 },
-  questionText: { fontSize: 15, color: Colors.textPrimary, lineHeight: 22 },
+  questionText: { fontSize: 15, color: colors.textPrimary, lineHeight: 22 },
   questionMeta: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.sm, gap: Spacing.sm },
   difficultyChip: { height: 24 },
-  categoryText: { fontSize: 12, color: Colors.textSecondary },
+  categoryText: { fontSize: 12, color: colors.textSecondary },
   fab: { 
     position: 'absolute', 
     right: Spacing.base, 
     bottom: Spacing.xl, 
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
 });

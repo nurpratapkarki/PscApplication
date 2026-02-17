@@ -1,15 +1,16 @@
 import { Stack } from "expo-router";
-import { Colors } from "../../constants/colors";
+import { useColors } from "../../hooks/useColors";
 
 export default function TestsLayout() {
+  const colors = useColors();
   return (
     <Stack
       screenOptions={{
         headerShown: false,
         headerStyle: {
-          backgroundColor: Colors.primary,
+          backgroundColor: colors.primary,
         },
-        headerTintColor: Colors.white,
+        headerTintColor: colors.white,
         headerTitleStyle: {
           fontWeight: '600',
         },
@@ -24,4 +25,3 @@ export default function TestsLayout() {
     </Stack>
   );
 }
-

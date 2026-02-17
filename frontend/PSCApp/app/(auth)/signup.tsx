@@ -4,12 +4,16 @@ import { Text, Button, TextInput, HelperText } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useColors } from '../../hooks/useColors';
 import { Colors } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const colors = useColors();
   const { register, isLoading: authLoading, error: authError } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -20,12 +24,12 @@ export default function SignUpScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const validateForm = (): string | null => {
-    if (!email.trim()) return 'Email is required';
-    if (!password) return 'Password is required';
-    if (password.length < 8) return 'Password must be at least 8 characters';
-    if (password !== confirmPassword) return 'Passwords do not match';
+    if (!email.trim()) return t('auth.emailRequired');
+    if (!password) return t('auth.passwordRequired');
+    if (password.length < 8) return t('auth.passwordMinLength');
+    if (password !== confirmPassword) return t('auth.passwordsMismatch');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return 'Please enter a valid email address';
+    if (!emailRegex.test(email)) return t('auth.invalidEmail');
     return null;
   };
 
@@ -50,7 +54,7 @@ export default function SignUpScreen() {
       // Registration successful + auto-logged in - go to profile setup or home
       router.replace('/(auth)/profile-setup');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+      const errorMessage = err instanceof Error ? err.message : t('auth.registrationFailed');
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -70,34 +74,34 @@ export default function SignUpScreen() {
           {/* Header */}
           <View style={styles.header}>
             <MaterialCommunityIcons name="account-plus" size={64} color={Colors.white} />
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join PSC Exam Prep today</Text>
+            <Text style={styles.title}>{t('auth.createAccount')}</Text>
+            <Text style={styles.subtitle}>{t('auth.joinPSC')}</Text>
           </View>
 
           {/* Form */}
-          <View style={styles.formContainer}>
+          <View style={[styles.formContainer, { backgroundColor: colors.surface }]}>
             {error && (
-              <HelperText type="error" visible={!!error} style={styles.errorText}>
+              <HelperText type="error" visible={!!error} style={[styles.errorText, { backgroundColor: colors.errorLight }]}>
                 {error}
               </HelperText>
             )}
 
             <TextInput
-              label="Full Name (Optional)"
+              label={t('auth.fullNameOptional')}
               value={fullName}
               onChangeText={setFullName}
               mode="outlined"
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.surface }]}
               left={<TextInput.Icon icon="account" />}
               autoCapitalize="words"
             />
 
             <TextInput
-              label="Email"
+              label={t('auth.email')}
               value={email}
               onChangeText={setEmail}
               mode="outlined"
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.surface }]}
               left={<TextInput.Icon icon="email" />}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -105,11 +109,11 @@ export default function SignUpScreen() {
             />
 
             <TextInput
-              label="Password"
+              label={t('auth.password')}
               value={password}
               onChangeText={setPassword}
               mode="outlined"
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.surface }]}
               secureTextEntry={!showPassword}
               left={<TextInput.Icon icon="lock" />}
               right={
@@ -121,11 +125,11 @@ export default function SignUpScreen() {
             />
 
             <TextInput
-              label="Confirm Password"
+              label={t('auth.confirmPassword')}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               mode="outlined"
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.surface }]}
               secureTextEntry={!showPassword}
               left={<TextInput.Icon icon="lock-check" />}
             />
@@ -138,20 +142,20 @@ export default function SignUpScreen() {
               style={styles.signUpButton}
               contentStyle={styles.buttonContent}
             >
-              Create Account
+              {t('auth.createAccount')}
             </Button>
           </View>
 
           {/* Back to Login */}
           <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>Already have an account? </Text>
+            <Text style={styles.loginText}>{t('auth.haveAccount')} </Text>
             <Button
               mode="text"
               onPress={() => router.back()}
               textColor={Colors.white}
               compact
             >
-              Sign In
+              {t('auth.signIn')}
             </Button>
           </View>
         </ScrollView>
@@ -189,20 +193,17 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   formContainer: {
-    backgroundColor: Colors.white,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     elevation: 4,
   },
   errorText: {
-    backgroundColor: Colors.errorLight,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
     fontSize: 14,
   },
   input: {
     marginBottom: Spacing.md,
-    backgroundColor: Colors.white,
   },
   signUpButton: {
     borderRadius: BorderRadius.lg,

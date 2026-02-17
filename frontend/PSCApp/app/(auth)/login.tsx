@@ -4,6 +4,8 @@ import { Text, Button, TextInput, Divider } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useColors } from '../../hooks/useColors';
 import { Colors } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
 import { useAuth } from '../../hooks/useAuth';
@@ -13,17 +15,13 @@ import Constants from 'expo-constants';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Hardcoded credentials for development/testing purposes
-const DEV_CREDENTIALS = {
-  username: 'admin',
-  password: 'admin',
-};
-
 const googleOAuthConfig = Constants.expoConfig?.extra?.googleOAuth;
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { regularLogin, googleLogin, devLogin, isLoading, error: authError } = useAuth();
+  const { t } = useTranslation();
+  const colors = useColors();
+  const { login, googleLogin, isLoading, error: authError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -44,19 +42,19 @@ export default function LoginScreen() {
             await googleLogin({ access_token: authentication.accessToken });
             router.replace('/(tabs)');
           } catch {
-            setError('Google sign-in failed. Please try again.');
+            setError(t('auth.googleSignInFailed'));
           }
         })();
       }
     } else if (response?.type === 'error') {
-      setError('Google sign-in was cancelled or failed.');
+      setError(t('auth.googleSignInCancelled'));
     }
-  }, [response]);
+  }, [response, googleLogin, router, t]);
 
   const handleGoogleLogin = async () => {
     setError(null);
     if (!request) {
-      setError('Google login is not yet configured. Please use Email Login or Sign Up.');
+      setError(t('auth.googleNotConfigured'));
       return;
     }
     await promptAsync();
@@ -67,29 +65,20 @@ export default function LoginScreen() {
     const loginPassword = password.trim();
 
     if (!loginEmail || !loginPassword) {
-      setError('Please enter both email and password.');
+      setError(t('auth.enterBothFields'));
       return;
     }
 
     setError(null);
     try {
-      await regularLogin(loginEmail, loginPassword);
+      await login({ email: loginEmail, password: loginPassword });
       router.replace('/(tabs)');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed. Please check your credentials.');
+      setError(err instanceof Error ? err.message : t('auth.loginFailed'));
     }
   };
 
-  const handleDevLogin = async () => {
-    // Use hardcoded credentials for quick testing (dev mode only)
-    setError(null);
-    try {
-      await devLogin(DEV_CREDENTIALS.username, DEV_CREDENTIALS.password);
-      router.replace('/(tabs)');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dev login failed.');
-    }
-  };
+  
 
   const displayError = error || authError;
 
@@ -110,40 +99,40 @@ export default function LoginScreen() {
               <MaterialCommunityIcons name="school" size={60} color={Colors.white} />
             </View>
             <Text style={styles.appName}>PSC Exam Prep</Text>
-            <Text style={styles.tagline}>नेपाल लोक सेवा आयोग परीक्षा तयारी</Text>
+            <Text style={styles.tagline}>{'\u0928\u0947\u092A\u093E\u0932 \u0932\u094B\u0915 \u0938\u0947\u0935\u093E \u0906\u092F\u094B\u0917 \u092A\u0930\u0940\u0915\u094D\u0937\u093E \u0924\u092F\u093E\u0930\u0940'}</Text>
           </View>
 
           {/* Login Card */}
-          <View style={styles.loginCard}>
-            <Text style={styles.welcomeText}>Welcome Back!</Text>
-            <Text style={styles.subText}>Sign in to continue your preparation</Text>
+          <View style={[styles.loginCard, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.welcomeText, { color: colors.textPrimary }]}>{t('auth.welcomeBack')}</Text>
+            <Text style={[styles.subText, { color: colors.textSecondary }]}>{t('auth.signInContinue')}</Text>
 
             {displayError && (
-              <View style={styles.errorContainer}>
-                <MaterialCommunityIcons name="alert-circle" size={20} color={Colors.error} />
-                <Text style={styles.errorText}>{displayError}</Text>
+              <View style={[styles.errorContainer, { backgroundColor: colors.errorLight }]}>
+                <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
+                <Text style={[styles.errorText, { color: colors.error }]}>{displayError}</Text>
               </View>
             )}
 
             {/* Email/Password Login Form */}
             <View style={styles.emailLoginForm}>
               <TextInput
-                label="Email or Username"
+                label={t('auth.emailOrUsername')}
                 value={email}
                 onChangeText={setEmail}
                 mode="outlined"
                 keyboardType="email-address"
                 autoCapitalize="none"
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surface }]}
                 left={<TextInput.Icon icon="email" />}
               />
               <TextInput
-                label="Password"
+                label={t('auth.password')}
                 value={password}
                 onChangeText={setPassword}
                 mode="outlined"
                 secureTextEntry
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surface }]}
                 left={<TextInput.Icon icon="lock" />}
               />
               <Button
@@ -154,14 +143,14 @@ export default function LoginScreen() {
                 style={styles.loginButton}
                 contentStyle={styles.buttonContent}
               >
-                Sign In
+                {t('auth.signIn')}
               </Button>
             </View>
 
             <View style={styles.dividerContainer}>
-              <Divider style={styles.divider} />
-              <Text style={styles.dividerText}>or</Text>
-              <Divider style={styles.divider} />
+              <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerText, { color: colors.textTertiary }]}>{t('auth.or')}</Text>
+              <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
             </View>
 
             {/* Google Sign In Button */}
@@ -169,48 +158,36 @@ export default function LoginScreen() {
               mode="outlined"
               onPress={handleGoogleLogin}
               disabled={isLoading}
-              style={styles.googleButton}
+              style={[styles.googleButton, { borderColor: colors.border }]}
               contentStyle={styles.buttonContent}
               icon={({ size, color }) => (
                 <MaterialCommunityIcons name="google" size={size} color={color} />
               )}
             >
-              Continue with Google
+              {t('auth.continueWithGoogle')}
             </Button>
 
-            {/* Dev Login Button (for quick testing) */}
-            {__DEV__ && (
-              <Button
-                mode="text"
-                onPress={handleDevLogin}
-                disabled={isLoading}
-                style={styles.devButton}
-                textColor={Colors.textTertiary}
-              >
-                Quick Dev Login (admin/admin)
-              </Button>
-            )}
+            
+            
           </View>
 
           {/* Sign Up Link */}
           <View style={styles.signUpContainer}>
-            <Text style={styles.signUpText}>Don&apos;t have an account? </Text>
+            <Text style={styles.signUpText}>{t('auth.noAccount')} </Text>
             <Button
               mode="text"
               onPress={() => router.push('/(auth)/signup')}
               textColor={Colors.white}
               compact
             >
-              Sign Up
+              {t('auth.signUp')}
             </Button>
           </View>
 
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              By continuing, you agree to our{' '}
-              <Text style={styles.linkText}>Terms of Service</Text> and{' '}
-              <Text style={styles.linkText}>Privacy Policy</Text>
+              {t('auth.termsAgreement')}
             </Text>
           </View>
         </ScrollView>
@@ -256,7 +233,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
   },
   loginCard: {
-    backgroundColor: Colors.white,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     elevation: 8,
@@ -268,26 +244,22 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.textPrimary,
     textAlign: 'center',
     marginBottom: Spacing.xs,
   },
   subText: {
     fontSize: 14,
-    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: Spacing.xl,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.errorLight,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.base,
   },
   errorText: {
-    color: Colors.error,
     marginLeft: Spacing.sm,
     flex: 1,
   },
@@ -295,7 +267,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.base,
   },
   googleButton: {
-    borderColor: Colors.border,
     borderRadius: BorderRadius.lg,
   },
   buttonContent: {
@@ -308,18 +279,15 @@ const styles = StyleSheet.create({
   },
   divider: {
     flex: 1,
-    backgroundColor: Colors.border,
   },
   dividerText: {
     marginHorizontal: Spacing.base,
-    color: Colors.textTertiary,
   },
   devButton: {
     marginTop: Spacing.base,
   },
   input: {
     marginBottom: Spacing.md,
-    backgroundColor: Colors.white,
   },
   loginButton: {
     borderRadius: BorderRadius.lg,
@@ -344,9 +312,5 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     lineHeight: 18,
-  },
-  linkText: {
-    color: Colors.white,
-    textDecorationLine: 'underline',
   },
 });

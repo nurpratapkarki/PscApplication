@@ -5,6 +5,7 @@ import { Card, Text, Switch, RadioButton, Divider, Button } from 'react-native-p
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useColors } from '../../hooks/useColors';
 import { Colors } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
 import { updateUserProfile } from '../../services/api/profile';
@@ -16,7 +17,8 @@ type NotificationFrequency = 'all' | 'important' | 'none';
 
 export default function ProfilePreferencesScreen() {
   const router = useRouter();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const colors = useColors();
   const settings = useSettingsStore();
 
   // Language preferences
@@ -55,27 +57,27 @@ export default function ProfilePreferencesScreen() {
       settings.setShowExplanations(showExplanations);
       settings.setShuffleQuestions(shuffleQuestions);
 
-      Alert.alert('Success', 'Preferences saved successfully!', [
-        { text: 'OK', onPress: () => router.back() }
+      Alert.alert(t('common.success'), t('preferences.savedSuccess'), [
+        { text: t('common.ok'), onPress: () => router.back() }
       ]);
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to save preferences. Please try again.');
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('preferences.saveFailed'));
     } finally {
       setIsSaving(false);
     }
   };
 
-  const ToggleItem = ({ 
-    icon, 
-    title, 
-    subtitle, 
-    value, 
-    onToggle 
-  }: { 
-    icon: string; 
-    title: string; 
-    subtitle?: string; 
-    value: boolean; 
+  const ToggleItem = ({
+    icon,
+    title,
+    subtitle,
+    value,
+    onToggle
+  }: {
+    icon: string;
+    title: string;
+    subtitle?: string;
+    value: boolean;
     onToggle: (value: boolean) => void;
   }) => (
     <View style={styles.toggleItem}>
@@ -83,57 +85,57 @@ export default function ProfilePreferencesScreen() {
         <MaterialCommunityIcons name={icon as any} size={20} color={Colors.primary} />
       </View>
       <View style={styles.toggleTextContainer}>
-        <Text style={styles.toggleTitle}>{title}</Text>
-        {subtitle && <Text style={styles.toggleSubtitle}>{subtitle}</Text>}
+        <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>{title}</Text>
+        {subtitle && <Text style={[styles.toggleSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text>}
       </View>
       <Switch value={value} onValueChange={onToggle} color={Colors.primary} />
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.textPrimary} />
+        <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.surface }]}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Preferences</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t('preferences.title')}</Text>
         <View style={{ width: 44 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Language Section */}
-        <Text style={styles.sectionTitle}>Language / भाषा</Text>
-        <Card style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('preferences.language')}</Text>
+        <Card style={[styles.card, { backgroundColor: colors.surface }]}>
           <Card.Content>
             <RadioButton.Group onValueChange={(value) => setLanguage(value as Language)} value={language}>
-              <TouchableOpacity 
-                style={styles.radioItem} 
+              <TouchableOpacity
+                style={styles.radioItem}
                 onPress={() => setLanguage('EN')}
                 activeOpacity={0.7}
               >
                 <View style={styles.radioContent}>
                   <Text style={styles.languageFlag}>🇬🇧</Text>
                   <View>
-                    <Text style={styles.radioLabel}>English</Text>
-                    <Text style={styles.radioSubtitle}>App interface in English</Text>
+                    <Text style={[styles.radioLabel, { color: colors.textPrimary }]}>{t('preferences.english')}</Text>
+                    <Text style={[styles.radioSubtitle, { color: colors.textSecondary }]}>{t('preferences.englishSubtitle')}</Text>
                   </View>
                 </View>
                 <RadioButton value="EN" color={Colors.primary} />
               </TouchableOpacity>
               <Divider style={styles.divider} />
-              <TouchableOpacity 
-                style={styles.radioItem} 
+              <TouchableOpacity
+                style={styles.radioItem}
                 onPress={() => setLanguage('NP')}
                 activeOpacity={0.7}
               >
                 <View style={styles.radioContent}>
                   <Text style={styles.languageFlag}>🇳🇵</Text>
                   <View>
-                    <Text style={styles.radioLabel}>नेपाली</Text>
-                    <Text style={styles.radioSubtitle}>App interface in Nepali</Text>
+                    <Text style={[styles.radioLabel, { color: colors.textPrimary }]}>{t('preferences.nepali')}</Text>
+                    <Text style={[styles.radioSubtitle, { color: colors.textSecondary }]}>{t('preferences.nepaliSubtitle')}</Text>
                   </View>
                 </View>
                 <RadioButton value="NP" color={Colors.primary} />
@@ -143,37 +145,37 @@ export default function ProfilePreferencesScreen() {
         </Card>
 
         {/* Notification Preferences */}
-        <Text style={styles.sectionTitle}>Notifications</Text>
-        <Card style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('preferences.notifications')}</Text>
+        <Card style={[styles.card, { backgroundColor: colors.surface }]}>
           <Card.Content>
             <ToggleItem
               icon="fire"
-              title="Streak Reminders"
-              subtitle="Daily reminder to maintain your streak"
+              title={t('preferences.streakReminders')}
+              subtitle={t('preferences.streakRemindersSubtitle')}
               value={streakReminders}
               onToggle={setStreakReminders}
             />
             <Divider style={styles.toggleDivider} />
             <ToggleItem
               icon="clipboard-text-clock"
-              title="Test Reminders"
-              subtitle="Reminders for scheduled mock tests"
+              title={t('preferences.testReminders')}
+              subtitle={t('preferences.testRemindersSubtitle')}
               value={testReminders}
               onToggle={setTestReminders}
             />
             <Divider style={styles.toggleDivider} />
             <ToggleItem
               icon="check-decagram"
-              title="Contribution Updates"
-              subtitle="When your questions are reviewed"
+              title={t('preferences.contributionUpdates')}
+              subtitle={t('preferences.contributionUpdatesSubtitle')}
               value={contributionUpdates}
               onToggle={setContributionUpdates}
             />
             <Divider style={styles.toggleDivider} />
             <ToggleItem
               icon="trophy"
-              title="Leaderboard Updates"
-              subtitle="Weekly rank changes"
+              title={t('preferences.leaderboardUpdates')}
+              subtitle={t('preferences.leaderboardUpdatesSubtitle')}
               value={leaderboardUpdates}
               onToggle={setLeaderboardUpdates}
             />
@@ -181,28 +183,28 @@ export default function ProfilePreferencesScreen() {
         </Card>
 
         {/* Notification Frequency */}
-        <Text style={styles.sectionTitle}>Notification Frequency</Text>
-        <Card style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('preferences.notificationFrequency')}</Text>
+        <Card style={[styles.card, { backgroundColor: colors.surface }]}>
           <Card.Content>
-            <RadioButton.Group 
-              onValueChange={(value) => setNotificationFrequency(value as NotificationFrequency)} 
+            <RadioButton.Group
+              onValueChange={(value) => setNotificationFrequency(value as NotificationFrequency)}
               value={notificationFrequency}
             >
               {[
-                { value: 'all', label: 'All Notifications', subtitle: 'Receive all notifications' },
-                { value: 'important', label: 'Important Only', subtitle: 'Only receive important updates' },
-                { value: 'none', label: 'None', subtitle: 'Turn off all notifications' },
+                { value: 'all', label: t('preferences.allNotifications'), subtitle: t('preferences.allNotificationsSubtitle') },
+                { value: 'important', label: t('preferences.importantOnly'), subtitle: t('preferences.importantOnlySubtitle') },
+                { value: 'none', label: t('preferences.none'), subtitle: t('preferences.noneSubtitle') },
               ].map((option, index) => (
                 <React.Fragment key={option.value}>
                   {index > 0 && <Divider style={styles.divider} />}
-                  <TouchableOpacity 
-                    style={styles.radioItem} 
+                  <TouchableOpacity
+                    style={styles.radioItem}
                     onPress={() => setNotificationFrequency(option.value as NotificationFrequency)}
                     activeOpacity={0.7}
                   >
                     <View style={styles.radioTextContainer}>
-                      <Text style={styles.radioLabel}>{option.label}</Text>
-                      <Text style={styles.radioSubtitle}>{option.subtitle}</Text>
+                      <Text style={[styles.radioLabel, { color: colors.textPrimary }]}>{option.label}</Text>
+                      <Text style={[styles.radioSubtitle, { color: colors.textSecondary }]}>{option.subtitle}</Text>
                     </View>
                     <RadioButton value={option.value} color={Colors.primary} />
                   </TouchableOpacity>
@@ -213,29 +215,29 @@ export default function ProfilePreferencesScreen() {
         </Card>
 
         {/* Study Preferences */}
-        <Text style={styles.sectionTitle}>Study Preferences</Text>
-        <Card style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('preferences.studyPreferences')}</Text>
+        <Card style={[styles.card, { backgroundColor: colors.surface }]}>
           <Card.Content>
             <ToggleItem
               icon="arrow-right-circle"
-              title="Auto-advance Questions"
-              subtitle="Move to next question after answering"
+              title={t('preferences.autoAdvance')}
+              subtitle={t('preferences.autoAdvanceSubtitle')}
               value={autoAdvance}
               onToggle={setAutoAdvance}
             />
             <Divider style={styles.toggleDivider} />
             <ToggleItem
               icon="information"
-              title="Show Explanations"
-              subtitle="Show explanations after answering"
+              title={t('preferences.showExplanations')}
+              subtitle={t('preferences.showExplanationsSubtitle')}
               value={showExplanations}
               onToggle={setShowExplanations}
             />
             <Divider style={styles.toggleDivider} />
             <ToggleItem
               icon="shuffle-variant"
-              title="Shuffle Questions"
-              subtitle="Randomize question order in practice"
+              title={t('preferences.shuffleQuestions')}
+              subtitle={t('preferences.shuffleQuestionsSubtitle')}
               value={shuffleQuestions}
               onToggle={setShuffleQuestions}
             />
@@ -244,18 +246,18 @@ export default function ProfilePreferencesScreen() {
       </ScrollView>
 
       {/* Save Button */}
-      <View style={styles.bottomAction}>
-        <Button 
-          mode="contained" 
-          icon="content-save" 
-          style={styles.saveButton} 
+      <View style={[styles.bottomAction, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+        <Button
+          mode="contained"
+          icon="content-save"
+          style={styles.saveButton}
           contentStyle={styles.saveButtonContent}
           labelStyle={styles.saveButtonLabel}
           onPress={handleSave}
           loading={isSaving}
           disabled={isSaving}
         >
-          Save Preferences
+          {t('preferences.savePreferences')}
         </Button>
       </View>
     </SafeAreaView>
@@ -263,72 +265,67 @@ export default function ProfilePreferencesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: Spacing.base,
   },
-  backButton: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    backgroundColor: Colors.white, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
     elevation: 2,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  headerTitle: { fontSize: 20, fontWeight: '700' },
   scrollContent: { padding: Spacing.base, paddingBottom: 100 },
-  sectionTitle: { 
-    fontSize: 13, 
-    fontWeight: '600', 
-    color: Colors.textSecondary, 
-    marginBottom: Spacing.sm, 
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: Spacing.sm,
     marginTop: Spacing.md,
     marginLeft: Spacing.xs,
   },
-  card: { 
-    backgroundColor: Colors.white, 
-    borderRadius: BorderRadius.xl, 
-    overflow: 'hidden', 
+  card: {
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
     marginBottom: Spacing.sm,
   },
-  radioItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  radioItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: Spacing.md,
   },
   radioContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   radioTextContainer: { flex: 1 },
   languageFlag: { fontSize: 28, marginRight: Spacing.md },
-  radioLabel: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
-  radioSubtitle: { fontSize: 12, color: Colors.textSecondary },
+  radioLabel: { fontSize: 15, fontWeight: '600' },
+  radioSubtitle: { fontSize: 12 },
   divider: { marginVertical: 0 },
-  toggleItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  toggleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: Spacing.sm,
   },
-  toggleIcon: { 
-    width: 36, 
-    height: 36, 
-    borderRadius: 18, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
+  toggleIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: Spacing.md,
   },
   toggleTextContainer: { flex: 1 },
-  toggleTitle: { fontSize: 15, fontWeight: '500', color: Colors.textPrimary },
-  toggleSubtitle: { fontSize: 12, color: Colors.textSecondary },
+  toggleTitle: { fontSize: 15, fontWeight: '500' },
+  toggleSubtitle: { fontSize: 12 },
   toggleDivider: { marginLeft: 52, marginVertical: Spacing.xs },
-  bottomAction: { 
-    backgroundColor: Colors.white, 
-    padding: Spacing.base, 
-    borderTopWidth: 1, 
-    borderTopColor: Colors.border,
+  bottomAction: {
+    padding: Spacing.base,
+    borderTopWidth: 1,
   },
   saveButton: { borderRadius: BorderRadius.lg },
   saveButtonContent: { paddingVertical: Spacing.sm },

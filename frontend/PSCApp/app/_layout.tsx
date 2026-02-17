@@ -1,58 +1,63 @@
+import { useMemo } from "react";
 import { Stack } from "expo-router";
-import { PaperProvider, MD3LightTheme } from "react-native-paper";
+import { PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { I18nextProvider } from "react-i18next";
 import i18n from "../i18n";
 import { useSettingsStore } from "../store/settingsStore";
-import { Colors } from "../constants/colors";
-
-// Custom theme for the app - Professional PSC Exam Prep Theme
-const theme = {
-  ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: Colors.primary,
-    onPrimary: Colors.textOnPrimary,
-    primaryContainer: Colors.primaryLight,
-    secondary: Colors.accent,
-    onSecondary: Colors.textOnSecondary,
-    secondaryContainer: Colors.accentLight,
-    tertiary: Colors.secondary,
-    background: Colors.background,
-    surface: Colors.surface,
-    surfaceVariant: Colors.surfaceVariant,
-    error: Colors.error,
-    onError: Colors.white,
-    outline: Colors.border,
-  },
-  roundness: 12,
-};
+import { useColors } from "../hooks/useColors";
 
 export default function RootLayout() {
-  // Sync i18n language with stored preference
   const language = useSettingsStore((state) => state.language);
+  const darkMode = useSettingsStore((state) => state.darkMode);
+  const colors = useColors();
+
   if (i18n.language !== language) {
     i18n.changeLanguage(language);
   }
+
+  const theme = useMemo(() => {
+    const base = darkMode ? MD3DarkTheme : MD3LightTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: colors.primary,
+        onPrimary: colors.textOnPrimary,
+        primaryContainer: colors.primaryLight,
+        secondary: colors.accent,
+        onSecondary: colors.textOnSecondary,
+        secondaryContainer: colors.accentLight,
+        tertiary: colors.secondary,
+        background: colors.background,
+        surface: colors.surface,
+        surfaceVariant: colors.surfaceVariant,
+        error: colors.error,
+        onError: colors.white,
+        outline: colors.border,
+      },
+      roundness: 12,
+    };
+  }, [darkMode, colors]);
 
   return (
     <I18nextProvider i18n={i18n}>
     <SafeAreaProvider>
       <PaperProvider theme={theme}>
-        <StatusBar style="dark" />
+        <StatusBar style={darkMode ? "light" : "dark"} />
         <Stack
           screenOptions={{
             headerShown: false,
             headerStyle: {
-              backgroundColor: Colors.primary,
+              backgroundColor: colors.primary,
             },
-            headerTintColor: Colors.white,
+            headerTintColor: colors.white,
             headerTitleStyle: {
               fontWeight: '600',
             },
             contentStyle: {
-              backgroundColor: Colors.background,
+              backgroundColor: colors.background,
             },
           }}
         >

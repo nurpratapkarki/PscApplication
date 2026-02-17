@@ -4,9 +4,11 @@ import { Stack, useRouter } from 'expo-router';
 import { Card, Text, ActivityIndicator, ProgressBar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/useApi';
 import { PlatformStatistics } from '../../types/contribution.types';
-import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
+import { ColorScheme } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
 
 const formatNumber = (num: number) => {
@@ -17,6 +19,9 @@ const formatNumber = (num: number) => {
 
 export default function CommunityStatsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const colors = useColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { data: stats, status } = useApi<PlatformStatistics>('/api/platform-stats/');
 
   const StatCard = ({ icon, value, label, color, subtitle }: { icon: string; value: string | number; label: string; color: string; subtitle?: string }) => (
@@ -35,7 +40,7 @@ export default function CommunityStatsScreen() {
   if (status === 'loading') {
     return (
       <SafeAreaView style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -46,9 +51,9 @@ export default function CommunityStatsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.textPrimary} />
+          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Platform Stats</Text>
+        <Text style={styles.headerTitle}>{t('community.platformStats')}</Text>
         <View style={{ width: 44 }} />
       </View>
 
@@ -56,61 +61,61 @@ export default function CommunityStatsScreen() {
         {/* Hero Stats */}
         <Card style={styles.heroCard}>
           <Card.Content style={styles.heroContent}>
-            <MaterialCommunityIcons name="chart-bar" size={40} color={Colors.primary} />
-            <Text style={styles.heroTitle}>PSC Prep Nepal</Text>
-            <Text style={styles.heroSubtitle}>Growing together, learning together</Text>
+            <MaterialCommunityIcons name="chart-bar" size={40} color={colors.primary} />
+            <Text style={styles.heroTitle}>{t('community.heroTitle')}</Text>
+            <Text style={styles.heroSubtitle}>{t('community.heroSubtitle')}</Text>
             <View style={styles.heroStats}>
               <View style={styles.heroStatItem}>
                 <Text style={styles.heroStatValue}>{formatNumber(stats?.total_users || 0)}</Text>
-                <Text style={styles.heroStatLabel}>Users</Text>
+                <Text style={styles.heroStatLabel}>{t('community.users')}</Text>
               </View>
               <View style={styles.heroStatDivider} />
               <View style={styles.heroStatItem}>
                 <Text style={styles.heroStatValue}>{formatNumber(stats?.total_questions || 0)}</Text>
-                <Text style={styles.heroStatLabel}>Questions</Text>
+                <Text style={styles.heroStatLabel}>{t('community.questions')}</Text>
               </View>
               <View style={styles.heroStatDivider} />
               <View style={styles.heroStatItem}>
                 <Text style={styles.heroStatValue}>{formatNumber(stats?.total_mock_tests || 0)}</Text>
-                <Text style={styles.heroStatLabel}>Tests</Text>
+                <Text style={styles.heroStatLabel}>{t('community.tests')}</Text>
               </View>
             </View>
           </Card.Content>
         </Card>
 
         {/* Content Stats */}
-        <Text style={styles.sectionTitle}>Content</Text>
+        <Text style={styles.sectionTitle}>{t('community.content')}</Text>
         <View style={styles.statsGrid}>
-          <StatCard icon="help-circle" value={stats?.total_questions || 0} label="Total Questions" color={Colors.primary} />
-          <StatCard icon="clipboard-list" value={stats?.total_mock_tests || 0} label="Mock Tests" color={Colors.secondary} />
-          <StatCard icon="folder" value={stats?.total_categories || 0} label="Categories" color={Colors.accent} />
-          <StatCard icon="school" value={stats?.total_branches || 0} label="Branches" color={Colors.warning} />
+          <StatCard icon="help-circle" value={stats?.total_questions || 0} label={t('community.totalQuestions')} color={colors.primary} />
+          <StatCard icon="clipboard-list" value={stats?.total_mock_tests || 0} label={t('community.mockTests')} color={colors.secondary} />
+          <StatCard icon="folder" value={stats?.total_categories || 0} label={t('community.categories')} color={colors.accent} />
+          <StatCard icon="school" value={stats?.total_branches || 0} label={t('community.branches')} color={colors.warning} />
         </View>
 
         {/* Community Stats */}
-        <Text style={styles.sectionTitle}>Community</Text>
+        <Text style={styles.sectionTitle}>{t('community.community')}</Text>
         <View style={styles.statsGrid}>
-          <StatCard icon="account-group" value={stats?.total_users || 0} label="Registered Users" color={Colors.primary} />
-          <StatCard icon="account-check" value={stats?.active_users_today || 0} label="Active Today" color={Colors.success} />
-          <StatCard icon="file-document-plus" value={stats?.questions_added_today || 0} label="Added Today" color={Colors.accent} />
-          <StatCard icon="clipboard-check" value={stats?.tests_taken_today || 0} label="Tests Today" color={Colors.secondary} />
+          <StatCard icon="account-group" value={stats?.total_users || 0} label={t('community.registeredUsers')} color={colors.primary} />
+          <StatCard icon="account-check" value={stats?.active_users_today || 0} label={t('community.activeToday')} color={colors.success} />
+          <StatCard icon="file-document-plus" value={stats?.questions_added_today || 0} label={t('community.addedToday')} color={colors.accent} />
+          <StatCard icon="clipboard-check" value={stats?.tests_taken_today || 0} label={t('community.testsToday')} color={colors.secondary} />
         </View>
 
         {/* Growth Card */}
         <Card style={styles.growthCard}>
           <Card.Content>
             <View style={styles.growthHeader}>
-              <MaterialCommunityIcons name="trending-up" size={24} color={Colors.success} />
-              <Text style={styles.growthTitle}>Platform Growth</Text>
+              <MaterialCommunityIcons name="trending-up" size={24} color={colors.success} />
+              <Text style={styles.growthTitle}>{t('community.platformGrowth')}</Text>
             </View>
             <View style={styles.growthItem}>
-              <Text style={styles.growthLabel}>Question Bank Completion</Text>
-              <ProgressBar progress={0.72} color={Colors.primary} style={styles.progressBar} />
+              <Text style={styles.growthLabel}>{t('community.questionBankCompletion')}</Text>
+              <ProgressBar progress={0.72} color={colors.primary} style={styles.progressBar} />
               <Text style={styles.growthPercent}>72%</Text>
             </View>
             <View style={styles.growthItem}>
-              <Text style={styles.growthLabel}>User Engagement</Text>
-              <ProgressBar progress={0.85} color={Colors.success} style={styles.progressBar} />
+              <Text style={styles.growthLabel}>{t('community.userEngagement')}</Text>
+              <ProgressBar progress={0.85} color={colors.success} style={styles.progressBar} />
               <Text style={styles.growthPercent}>85%</Text>
             </View>
           </Card.Content>
@@ -120,35 +125,35 @@ export default function CommunityStatsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+const createStyles = (colors: ColorScheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.base },
-  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center', elevation: 2 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.cardBackground, alignItems: 'center', justifyContent: 'center', elevation: 2 },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   scrollContent: { padding: Spacing.base, paddingBottom: Spacing['3xl'] },
-  heroCard: { backgroundColor: Colors.primaryLight + '30', borderRadius: BorderRadius.xl, marginBottom: Spacing.lg },
+  heroCard: { backgroundColor: colors.primaryLight + '30', borderRadius: BorderRadius.xl, marginBottom: Spacing.lg },
   heroContent: { alignItems: 'center', paddingVertical: Spacing.lg },
-  heroTitle: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, marginTop: Spacing.sm },
-  heroSubtitle: { fontSize: 14, color: Colors.textSecondary },
+  heroTitle: { fontSize: 22, fontWeight: '700', color: colors.textPrimary, marginTop: Spacing.sm },
+  heroSubtitle: { fontSize: 14, color: colors.textSecondary },
   heroStats: { flexDirection: 'row', marginTop: Spacing.lg, width: '100%', justifyContent: 'space-around' },
   heroStatItem: { alignItems: 'center' },
-  heroStatValue: { fontSize: 28, fontWeight: '700', color: Colors.primary },
-  heroStatLabel: { fontSize: 12, color: Colors.textSecondary },
-  heroStatDivider: { width: 1, backgroundColor: Colors.border },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.md, marginTop: Spacing.sm },
+  heroStatValue: { fontSize: 28, fontWeight: '700', color: colors.primary },
+  heroStatLabel: { fontSize: 12, color: colors.textSecondary },
+  heroStatDivider: { width: 1, backgroundColor: colors.border },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: Spacing.md, marginTop: Spacing.sm },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.lg },
-  statCard: { width: '48%', backgroundColor: Colors.white, borderRadius: BorderRadius.lg },
+  statCard: { width: '48%', backgroundColor: colors.cardBackground, borderRadius: BorderRadius.lg },
   statContent: { alignItems: 'center', paddingVertical: Spacing.md },
   statIconContainer: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xs },
-  statValue: { fontSize: 24, fontWeight: '700', color: Colors.textPrimary },
-  statLabel: { fontSize: 12, color: Colors.textSecondary, textAlign: 'center' },
-  statSubtitle: { fontSize: 10, color: Colors.textTertiary },
-  growthCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.xl },
+  statValue: { fontSize: 24, fontWeight: '700', color: colors.textPrimary },
+  statLabel: { fontSize: 12, color: colors.textSecondary, textAlign: 'center' },
+  statSubtitle: { fontSize: 10, color: colors.textTertiary },
+  growthCard: { backgroundColor: colors.cardBackground, borderRadius: BorderRadius.xl },
   growthHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.lg },
-  growthTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, marginLeft: Spacing.sm },
+  growthTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginLeft: Spacing.sm },
   growthItem: { marginBottom: Spacing.md },
-  growthLabel: { fontSize: 14, color: Colors.textSecondary, marginBottom: Spacing.xs },
+  growthLabel: { fontSize: 14, color: colors.textSecondary, marginBottom: Spacing.xs },
   progressBar: { height: 8, borderRadius: 4 },
-  growthPercent: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 4 },
+  growthPercent: { fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginTop: 4 },
 });

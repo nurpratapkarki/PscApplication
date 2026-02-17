@@ -4,11 +4,14 @@ import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Card, Text, TextInput, Button, Chip, ActivityIndicator, RadioButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useApi } from '../../../hooks/useApi';
 import { Question, AnswerOption as AnswerOptionType } from '../../../types/question.types';
 import { Category } from '../../../types/category.types';
 import { Contribution } from '../../../types/contribution.types';
-import { Colors } from '../../../constants/colors';
+import { useColors } from '../../../hooks/useColors';
+import { useLocalizedField } from '../../../hooks/useLocalizedField';
+import { ColorScheme } from '../../../constants/colors';
 import { Spacing, BorderRadius } from '../../../constants/typography';
 import { updateQuestion, deleteQuestion } from '../../../services/api/questions';
 import { getAccessToken } from '../../../services/api/client';
@@ -21,6 +24,10 @@ interface AnswerOption {
 
 export default function EditContributionScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const colors = useColors();
+  const lf = useLocalizedField();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { questionId } = useLocalSearchParams<{ questionId: string }>();
   
   const { data: contribution, status: contributionStatus } = useApi<Contribution>(
@@ -74,15 +81,15 @@ export default function EditContributionScreen() {
 
   const handleSubmit = async () => {
     if (!questionText.trim()) {
-      Alert.alert('Missing Question', 'Please enter the question text.');
+      Alert.alert(t('contribute.missingQuestionTitle'), t('contribute.missingQuestionMessage'));
       return;
     }
     if (!selectedCategory) {
-      Alert.alert('Missing Category', 'Please select a category.');
+      Alert.alert(t('contribute.missingCategoryTitle'), t('contribute.missingCategoryMessage'));
       return;
     }
     if (answers.some((a) => !a.text.trim())) {
-      Alert.alert('Missing Answers', 'Please fill in all answer options.');
+      Alert.alert(t('contribute.missingAnswersTitle'), t('contribute.missingAnswersMessage'));
       return;
     }
     
@@ -106,11 +113,11 @@ export default function EditContributionScreen() {
         },
         token
       );
-      Alert.alert('Success!', 'Your question has been updated and resubmitted for review.', [
-        { text: 'OK', onPress: () => router.back() }
+      Alert.alert(t('common.success'), t('contribute.updatedResubmitted'), [
+        { text: t('common.ok'), onPress: () => router.back() }
       ]);
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to update question. Please try again.');
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('contribute.updateFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -118,12 +125,12 @@ export default function EditContributionScreen() {
 
   const handleDelete = () => {
     Alert.alert(
-      'Delete Contribution',
-      'Are you sure you want to delete this contribution? This action cannot be undone.',
+      t('contribute.deleteTitle'),
+      t('contribute.deleteConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -131,7 +138,7 @@ export default function EditContributionScreen() {
               await deleteQuestion(question!.id, token);
               router.back();
             } catch (err) {
-              Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete question. Please try again.');
+              Alert.alert(t('common.error'), err instanceof Error ? err.message : t('contribute.deleteFailed'));
             }
           }
         },
@@ -143,11 +150,16 @@ export default function EditContributionScreen() {
   const isPending = contribution?.status === 'PENDING';
   const isRejected = contribution?.status === 'REJECTED';
   const canEdit = isPending || isRejected;
+  const statusLabel = contribution?.status === 'REJECTED'
+    ? t('contribute.statusRejected')
+    : contribution?.status === 'PENDING'
+      ? t('contribute.statusPending')
+      : t('contribute.statusApproved');
 
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -159,11 +171,11 @@ export default function EditContributionScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.textPrimary} />
+            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Question</Text>
+          <Text style={styles.headerTitle}>{t('contribute.editQuestion')}</Text>
           <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
-            <MaterialCommunityIcons name="delete" size={20} color={Colors.error} />
+            <MaterialCommunityIcons name="delete" size={20} color={colors.error} />
           </TouchableOpacity>
         </View>
 
@@ -173,28 +185,28 @@ export default function EditContributionScreen() {
             <Card style={[
               styles.statusBanner,
               { 
-                backgroundColor: isRejected ? Colors.errorLight : 
-                  isPending ? Colors.warningLight : Colors.successLight 
+                backgroundColor: isRejected ? colors.errorLight : 
+                  isPending ? colors.warningLight : colors.successLight 
               }
             ]}>
               <Card.Content style={styles.statusContent}>
                 <MaterialCommunityIcons 
                   name={isRejected ? 'alert-circle' : isPending ? 'clock-outline' : 'check-circle'} 
                   size={24} 
-                  color={isRejected ? Colors.error : isPending ? Colors.warning : Colors.success} 
+                  color={isRejected ? colors.error : isPending ? colors.warning : colors.success} 
                 />
                 <View style={styles.statusTextContainer}>
                   <Text style={[
                     styles.statusTitle,
-                    { color: isRejected ? Colors.error : isPending ? Colors.warning : Colors.success }
+                    { color: isRejected ? colors.error : isPending ? colors.warning : colors.success }
                   ]}>
-                    {contribution.status}
+                    {statusLabel}
                   </Text>
                   {isRejected && contribution.rejection_reason && (
                     <Text style={styles.rejectionReason}>{contribution.rejection_reason}</Text>
                   )}
                   {!canEdit && (
-                    <Text style={styles.statusNote}>This question cannot be edited as it has been approved.</Text>
+                    <Text style={styles.statusNote}>{t('contribute.editNotAllowed')}</Text>
                   )}
                 </View>
               </Card.Content>
@@ -204,7 +216,7 @@ export default function EditContributionScreen() {
           {/* Category Selection */}
           <Card style={styles.card}>
             <Card.Content>
-              <Text style={styles.inputLabel}>Category</Text>
+              <Text style={styles.inputLabel}>{t('contribute.selectCategory')}</Text>
               <View style={styles.chipRow}>
                 {categories?.slice(0, 6).map((cat) => (
                   <Chip 
@@ -212,10 +224,10 @@ export default function EditContributionScreen() {
                     selected={selectedCategory === cat.id} 
                     onPress={() => canEdit && setSelectedCategory(cat.id)} 
                     style={styles.chip} 
-                    selectedColor={Colors.primary}
+                    selectedColor={colors.primary}
                     disabled={!canEdit}
                   >
-                    {cat.name_en}
+                    {lf(cat.name_en, cat.name_np)}
                   </Chip>
                 ))}
               </View>
@@ -225,17 +237,17 @@ export default function EditContributionScreen() {
           {/* Question Text */}
           <Card style={styles.card}>
             <Card.Content>
-              <Text style={styles.inputLabel}>Question Text</Text>
+              <Text style={styles.inputLabel}>{t('contribute.questionText')}</Text>
               <TextInput 
                 mode="outlined" 
-                placeholder="Enter your question here..." 
+                placeholder={t('contribute.questionPlaceholderEn')}
                 value={questionText} 
                 onChangeText={setQuestionText} 
                 multiline 
                 numberOfLines={4} 
                 style={styles.textArea} 
-                outlineColor={Colors.border} 
-                activeOutlineColor={Colors.primary}
+                outlineColor={colors.border} 
+                activeOutlineColor={colors.primary}
                 disabled={!canEdit}
               />
             </Card.Content>
@@ -244,25 +256,25 @@ export default function EditContributionScreen() {
           {/* Answer Options */}
           <Card style={styles.card}>
             <Card.Content>
-              <Text style={styles.inputLabel}>Answer Options</Text>
-              <Text style={styles.inputHint}>Tap the radio button to mark the correct answer</Text>
+              <Text style={styles.inputLabel}>{t('contribute.answerOptions')}</Text>
+              <Text style={styles.inputHint}>{t('contribute.answerHint')}</Text>
               {answers.map((answer, index) => (
                 <View key={index} style={styles.answerRow}>
                   <RadioButton 
                     value={String(index)} 
                     status={answer.isCorrect ? 'checked' : 'unchecked'} 
                     onPress={() => canEdit && setCorrectAnswer(index)} 
-                    color={Colors.success}
+                    color={colors.success}
                     disabled={!canEdit}
                   />
                   <TextInput 
                     mode="outlined" 
-                    placeholder={`Option ${String.fromCharCode(65 + index)}`} 
+                    placeholder={t('contribute.answerOption', { option: String.fromCharCode(65 + index) })}
                     value={answer.text} 
                     onChangeText={(text) => updateAnswer(index, text)} 
                     style={styles.answerInput} 
-                    outlineColor={answer.isCorrect ? Colors.success : Colors.border} 
-                    activeOutlineColor={answer.isCorrect ? Colors.success : Colors.primary} 
+                    outlineColor={answer.isCorrect ? colors.success : colors.border} 
+                    activeOutlineColor={answer.isCorrect ? colors.success : colors.primary} 
                     dense
                     disabled={!canEdit}
                   />
@@ -274,17 +286,17 @@ export default function EditContributionScreen() {
           {/* Explanation */}
           <Card style={styles.card}>
             <Card.Content>
-              <Text style={styles.inputLabel}>Explanation (Optional)</Text>
+              <Text style={styles.inputLabel}>{t('contribute.explanationOptional')}</Text>
               <TextInput 
                 mode="outlined" 
-                placeholder="Explain why this is the correct answer..." 
+                placeholder={t('contribute.explanationPlaceholder')}
                 value={explanation} 
                 onChangeText={setExplanation} 
                 multiline 
                 numberOfLines={3} 
                 style={styles.textArea} 
-                outlineColor={Colors.border} 
-                activeOutlineColor={Colors.primary}
+                outlineColor={colors.border} 
+                activeOutlineColor={colors.primary}
                 disabled={!canEdit}
               />
             </Card.Content>
@@ -304,7 +316,7 @@ export default function EditContributionScreen() {
               loading={isSubmitting} 
               disabled={isSubmitting}
             >
-              Resubmit for Review
+              {t('contribute.resubmitForReview')}
             </Button>
           </View>
         )}
@@ -313,25 +325,25 @@ export default function EditContributionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+const createStyles = (colors: ColorScheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.base },
   backButton: { 
     width: 44, 
     height: 44, 
     borderRadius: 22, 
-    backgroundColor: Colors.white, 
+    backgroundColor: colors.cardBackground, 
     alignItems: 'center', 
     justifyContent: 'center', 
     elevation: 2,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   deleteButton: { 
     width: 44, 
     height: 44, 
     borderRadius: 22, 
-    backgroundColor: Colors.errorLight, 
+    backgroundColor: colors.errorLight, 
     alignItems: 'center', 
     justifyContent: 'center',
   },
@@ -340,17 +352,17 @@ const styles = StyleSheet.create({
   statusContent: { flexDirection: 'row', alignItems: 'flex-start' },
   statusTextContainer: { flex: 1, marginLeft: Spacing.md },
   statusTitle: { fontSize: 16, fontWeight: '700' },
-  rejectionReason: { fontSize: 14, color: Colors.textSecondary, marginTop: Spacing.xs },
-  statusNote: { fontSize: 13, color: Colors.textSecondary, marginTop: Spacing.xs },
-  card: { backgroundColor: Colors.white, borderRadius: BorderRadius.xl, marginBottom: Spacing.lg, elevation: 2 },
-  inputLabel: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary, marginBottom: Spacing.sm },
-  inputHint: { fontSize: 12, color: Colors.textSecondary, marginBottom: Spacing.md },
+  rejectionReason: { fontSize: 14, color: colors.textSecondary, marginTop: Spacing.xs },
+  statusNote: { fontSize: 13, color: colors.textSecondary, marginTop: Spacing.xs },
+  card: { backgroundColor: colors.cardBackground, borderRadius: BorderRadius.xl, marginBottom: Spacing.lg, elevation: 2 },
+  inputLabel: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: Spacing.sm },
+  inputHint: { fontSize: 12, color: colors.textSecondary, marginBottom: Spacing.md },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   chip: { marginBottom: Spacing.xs },
-  textArea: { backgroundColor: Colors.white },
+  textArea: { backgroundColor: colors.cardBackground },
   answerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
-  answerInput: { flex: 1, backgroundColor: Colors.white },
-  bottomAction: { backgroundColor: Colors.white, padding: Spacing.base, borderTopWidth: 1, borderTopColor: Colors.border },
+  answerInput: { flex: 1, backgroundColor: colors.cardBackground },
+  bottomAction: { backgroundColor: colors.cardBackground, padding: Spacing.base, borderTopWidth: 1, borderTopColor: colors.border },
   submitButton: { borderRadius: BorderRadius.lg },
   submitButtonContent: { paddingVertical: Spacing.sm },
   submitButtonLabel: { fontSize: 16, fontWeight: '700' },

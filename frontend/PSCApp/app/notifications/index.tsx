@@ -4,9 +4,12 @@ import { Stack, useRouter } from 'expo-router';
 import { Text, ActivityIndicator, Button, Chip, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { usePaginatedApi } from '../../hooks/usePaginatedApi';
 import { Notification } from '../../types/contribution.types';
-import { Colors } from '../../constants/colors';
+import { Colors, ColorScheme } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
+import { useLocalizedField } from '../../hooks/useLocalizedField';
 import { Spacing } from '../../constants/typography';
 import { markNotificationRead, markAllNotificationsRead } from '../../services/api/notifications';
 import { useAuthStore } from '../../store/authStore';
@@ -56,16 +59,18 @@ interface NotificationItemProps {
   notification: Notification;
   onPress: (notification: Notification) => void;
   onMarkRead: (id: number) => void;
+  colors: ColorScheme;
+  lf: (en: string | undefined | null, np: string | undefined | null) => string;
 }
 
-const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onPress, onMarkRead }) => {
+const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onPress, onMarkRead, colors, lf }) => {
   const { icon, color } = getNotificationIcon(notification.notification_type);
 
   return (
-    <TouchableOpacity 
-      onPress={() => onPress(notification)} 
+    <TouchableOpacity
+      onPress={() => onPress(notification)}
       activeOpacity={0.7}
-      style={[styles.notificationItem, !notification.is_read && styles.unreadItem]}
+      style={[styles.notificationItem, { backgroundColor: colors.surface }, !notification.is_read && { backgroundColor: colors.primaryLight + '10' }]}
     >
       <View style={styles.notificationContent}>
         <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
@@ -73,23 +78,23 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onPre
         </View>
         <View style={styles.textContainer}>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, !notification.is_read && styles.unreadTitle]} numberOfLines={1}>
-              {notification.title_en}
+            <Text style={[styles.title, { color: colors.textPrimary }, !notification.is_read && styles.unreadTitle]} numberOfLines={1}>
+              {lf(notification.title_en, (notification as any).title_np)}
             </Text>
             {!notification.is_read && <View style={styles.unreadDot} />}
           </View>
-          <Text style={styles.message} numberOfLines={2}>
-            {notification.message_en}
+          <Text style={[styles.message, { color: colors.textSecondary }]} numberOfLines={2}>
+            {lf(notification.message_en, (notification as any).message_np)}
           </Text>
-          <Text style={styles.timeAgo}>{formatTimeAgo(notification.created_at)}</Text>
+          <Text style={[styles.timeAgo, { color: colors.textTertiary }]}>{formatTimeAgo(notification.created_at)}</Text>
         </View>
         {!notification.is_read && (
-          <TouchableOpacity 
-            style={styles.markReadBtn} 
+          <TouchableOpacity
+            style={[styles.markReadBtn, { backgroundColor: Colors.primaryLight + '30' }]}
             onPress={() => onMarkRead(notification.id)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialCommunityIcons name="check" size={18} color={Colors.primary} />
+            <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
           </TouchableOpacity>
         )}
       </View>
@@ -99,6 +104,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onPre
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const colors = useColors();
+  const lf = useLocalizedField();
   const [category, setCategory] = useState<NotificationCategory>('ALL');
   const [refreshing, setRefreshing] = useState(false);
   const [markingRead, setMarkingRead] = useState<number | null>(null);
@@ -170,23 +178,23 @@ export default function NotificationsScreen() {
   };
 
   const categories: { key: NotificationCategory; label: string; icon: string }[] = [
-    { key: 'ALL', label: 'All', icon: 'bell' },
-    { key: 'UNREAD', label: 'Unread', icon: 'bell-badge' },
-    { key: 'ACHIEVEMENT', label: 'Achievements', icon: 'trophy' },
-    { key: 'SYSTEM', label: 'System', icon: 'bullhorn' },
+    { key: 'ALL', label: t('notifications.all'), icon: 'bell' },
+    { key: 'UNREAD', label: t('notifications.unread'), icon: 'bell-badge' },
+    { key: 'ACHIEVEMENT', label: t('notifications.achievements'), icon: 'trophy' },
+    { key: 'SYSTEM', label: t('notifications.system'), icon: 'bullhorn' },
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
-      
+
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.textPrimary} />
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.surfaceVariant }]}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t('notifications.title')}</Text>
           {unreadCount > 0 && (
             <View style={styles.headerBadge}>
               <Text style={styles.headerBadgeText}>{unreadCount}</Text>
@@ -194,7 +202,7 @@ export default function NotificationsScreen() {
           )}
         </View>
         {unreadCount > 0 && (
-          <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllButton}>
+          <TouchableOpacity onPress={handleMarkAllRead} style={[styles.markAllButton, { backgroundColor: Colors.primaryLight + '30' }]}>
             <MaterialCommunityIcons name="check-all" size={24} color={Colors.primary} />
           </TouchableOpacity>
         )}
@@ -202,7 +210,7 @@ export default function NotificationsScreen() {
       </View>
 
       {/* Category Filters */}
-      <View style={styles.filterContainer}>
+      <View style={[styles.filterContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <FlatList
           data={categories}
           horizontal
@@ -213,13 +221,20 @@ export default function NotificationsScreen() {
             <Chip
               selected={category === item.key}
               onPress={() => setCategory(item.key)}
-              style={[styles.filterChip, category === item.key && styles.filterChipSelected]}
-              textStyle={[styles.filterChipText, category === item.key && styles.filterChipTextSelected]}
+              style={[
+                styles.filterChip,
+                { backgroundColor: colors.surfaceVariant },
+                category === item.key && { backgroundColor: Colors.primary },
+              ]}
+              textStyle={[
+                { color: colors.textSecondary, fontSize: 13 },
+                category === item.key && { color: Colors.white },
+              ]}
               icon={() => (
-                <MaterialCommunityIcons 
-                  name={item.icon as any} 
-                  size={16} 
-                  color={category === item.key ? Colors.white : Colors.textSecondary} 
+                <MaterialCommunityIcons
+                  name={item.icon as any}
+                  size={16}
+                  color={category === item.key ? Colors.white : colors.textSecondary}
                 />
               )}
             >
@@ -236,20 +251,20 @@ export default function NotificationsScreen() {
         </View>
       ) : filteredNotifications.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons name="bell-off-outline" size={80} color={Colors.textTertiary} />
-          <Text style={styles.emptyTitle}>No Notifications</Text>
-          <Text style={styles.emptySubtitle}>
-            {category === 'UNREAD' 
-              ? "You've read all your notifications" 
-              : "You don't have any notifications yet"}
+          <MaterialCommunityIcons name="bell-off-outline" size={80} color={colors.textTertiary} />
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>{t('notifications.noNotifications')}</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            {category === 'UNREAD'
+              ? t('notifications.allRead')
+              : t('notifications.noNotificationsYet')}
           </Text>
           {category !== 'ALL' && (
-            <Button 
-              mode="outlined" 
-              onPress={() => setCategory('ALL')} 
+            <Button
+              mode="outlined"
+              onPress={() => setCategory('ALL')}
               style={styles.viewAllButton}
             >
-              View All Notifications
+              {t('notifications.viewAllNotifications')}
             </Button>
           )}
         </View>
@@ -257,18 +272,20 @@ export default function NotificationsScreen() {
         <FlatList
           data={filteredNotifications}
           keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={{ backgroundColor: colors.surface }}
           refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={onRefresh} 
-              colors={[Colors.primary]} 
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[Colors.primary]}
             />
           }
           ItemSeparatorComponent={NotificationDivider}
           renderItem={({ item }) => (
-            <NotificationItem 
-              notification={item} 
+            <NotificationItem
+              colors={colors}
+              lf={lf}
+              notification={item}
               onPress={handleNotificationPress}
               onMarkRead={handleMarkRead}
             />
@@ -280,130 +297,108 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: Spacing.base,
-    backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
-  backButton: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    backgroundColor: Colors.surfaceVariant, 
-    alignItems: 'center', 
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitleContainer: { flexDirection: 'row', alignItems: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
-  headerBadge: { 
-    backgroundColor: Colors.error, 
-    borderRadius: 10, 
-    minWidth: 20, 
-    height: 20, 
-    alignItems: 'center', 
+  headerTitle: { fontSize: 20, fontWeight: '700' },
+  headerBadge: {
+    backgroundColor: Colors.error,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
     justifyContent: 'center',
     marginLeft: Spacing.xs,
     paddingHorizontal: 6,
   },
   headerBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.white },
-  markAllButton: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    backgroundColor: Colors.primaryLight + '30', 
-    alignItems: 'center', 
+  markAllButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  filterContainer: { 
-    backgroundColor: Colors.white, 
+  filterContainer: {
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   filterList: { paddingHorizontal: Spacing.base },
-  filterChip: { 
-    marginRight: Spacing.sm, 
-    backgroundColor: Colors.surfaceVariant,
-  },
-  filterChipSelected: { backgroundColor: Colors.primary },
-  filterChipText: { color: Colors.textSecondary, fontSize: 13 },
-  filterChipTextSelected: { color: Colors.white },
+  filterChip: { marginRight: Spacing.sm },
   loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: Spacing.xl,
   },
-  emptyTitle: { 
-    fontSize: 20, 
-    fontWeight: '700', 
-    color: Colors.textPrimary, 
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
     marginTop: Spacing.lg,
   },
-  emptySubtitle: { 
-    fontSize: 14, 
-    color: Colors.textSecondary, 
+  emptySubtitle: {
+    fontSize: 14,
     textAlign: 'center',
     marginTop: Spacing.xs,
   },
   viewAllButton: { marginTop: Spacing.lg },
-  listContent: { backgroundColor: Colors.white },
-  notificationItem: { 
-    paddingHorizontal: Spacing.base, 
+  notificationItem: {
+    paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.white,
   },
-  unreadItem: { backgroundColor: Colors.primaryLight + '10' },
   notificationContent: { flexDirection: 'row', alignItems: 'flex-start' },
-  iconContainer: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    alignItems: 'center', 
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.md,
   },
   textContainer: { flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'center' },
-  title: { 
-    fontSize: 15, 
-    fontWeight: '500', 
-    color: Colors.textPrimary, 
+  title: {
+    fontSize: 15,
+    fontWeight: '500',
     flex: 1,
   },
   unreadTitle: { fontWeight: '700' },
-  unreadDot: { 
-    width: 8, 
-    height: 8, 
-    borderRadius: 4, 
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: Colors.primary,
     marginLeft: Spacing.xs,
   },
-  message: { 
-    fontSize: 14, 
-    color: Colors.textSecondary, 
+  message: {
+    fontSize: 14,
     marginTop: 2,
     lineHeight: 20,
   },
-  timeAgo: { 
-    fontSize: 12, 
-    color: Colors.textTertiary, 
+  timeAgo: {
+    fontSize: 12,
     marginTop: Spacing.xs,
   },
-  markReadBtn: { 
-    width: 32, 
-    height: 32, 
-    borderRadius: 16, 
-    backgroundColor: Colors.primaryLight + '30', 
-    alignItems: 'center', 
+  markReadBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
     justifyContent: 'center',
     marginLeft: Spacing.sm,
   },
-  divider: { marginLeft: 76 },
 });

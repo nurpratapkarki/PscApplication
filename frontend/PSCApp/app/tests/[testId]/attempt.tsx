@@ -3,9 +3,12 @@ import { View, StyleSheet, ActivityIndicator, BackHandler, Alert, ScrollView } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Button, Card, Text, Title, RadioButton, ProgressBar } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { useApi } from '../../../hooks/useApi';
 import { MockTest, UserAttempt, UserAnswer, UserAnswerCreatePayload } from '../../../types/test.types';
-import { Colors } from '../../../constants/colors';
+import { useColors } from '../../../hooks/useColors';
+import { useLocalizedField } from '../../../hooks/useLocalizedField';
+import { ColorScheme } from '../../../constants/colors';
 import { Spacing, BorderRadius } from '../../../constants/typography';
 
 const formatTime = (seconds: number) => {
@@ -16,6 +19,10 @@ const formatTime = (seconds: number) => {
 
 const TestAttemptScreen = () => {
   const router = useRouter();
+  const { t } = useTranslation();
+  const colors = useColors();
+  const lf = useLocalizedField();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ testId: string | string[] }>();
 
   const testId = useMemo(() => {
@@ -83,9 +90,9 @@ const TestAttemptScreen = () => {
       await submitTest();
       router.replace(`/tests/${userAttempt.id}/results`);
     } catch {
-      Alert.alert("Submission Failed", "There was an error submitting your test. Please try again.");
+      Alert.alert(t('tests.submissionFailed'), t('tests.submissionFailedMsg'));
     }
-  }, [userAttempt, submitTest, router, submitStatus]);
+  }, [userAttempt, submitTest, router, submitStatus, t]);
 
   // --- Timer: start once when timeLeft becomes positive ---
   useEffect(() => {
@@ -119,19 +126,19 @@ const TestAttemptScreen = () => {
   useEffect(() => {
     if (timeLeft === 0 && timerInitialized.current && testData && !hasAutoSubmitted.current && submitStatus !== 'loading') {
       hasAutoSubmitted.current = true;
-      Alert.alert("Time's Up!", "Your test will be submitted now.", [
-        { text: "OK", onPress: handleSubmit },
+      Alert.alert(t('tests.timesUp'), t('tests.timesUpMsg'), [
+        { text: t('common.ok'), onPress: handleSubmit },
       ]);
     }
-  }, [timeLeft, testData, handleSubmit, submitStatus]);
+  }, [timeLeft, testData, handleSubmit, submitStatus, t]);
 
   // --- Prevent back navigation ---
   useEffect(() => {
     const backAction = () => {
       Alert.alert(
-        "Hold on!",
-        "You can't go back during a test. Use the 'Finish & Submit' button to exit.",
-        [{ text: "OK" }],
+        t('tests.holdOn'),
+        t('tests.cantGoBack'),
+        [{ text: t('common.ok') }],
       );
       return true;
     };
@@ -179,16 +186,16 @@ const TestAttemptScreen = () => {
     const unanswered = totalQuestions - answeredCount;
 
     Alert.alert(
-      "Finish Test",
+      t('tests.finishTest'),
       unanswered > 0
-        ? `You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}. Submit anyway?`
-        : "Are you sure you want to finish and submit your test?",
+        ? t('tests.unansweredWarning', { count: unanswered })
+        : t('tests.finishConfirm'),
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Submit", onPress: handleSubmit },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.submit'), onPress: handleSubmit },
       ],
     );
-  }, [testData, answers, handleSubmit]);
+  }, [testData, answers, handleSubmit, t]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -203,8 +210,8 @@ const TestAttemptScreen = () => {
   if (attemptStatus === 'loading' || testStatus === 'loading' || (testId && !testData)) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Preparing your test...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>{t('tests.preparingTest')}</Text>
       </SafeAreaView>
     );
   }
@@ -212,9 +219,9 @@ const TestAttemptScreen = () => {
   if (testStatus === 'error' || !testData) {
     return (
       <SafeAreaView style={styles.container}>
-        <Title>Error</Title>
-        <Text style={styles.errorText}>{testError || 'Could not load the test.'}</Text>
-        <Button onPress={() => router.back()}>Go Back</Button>
+        <Title>{t('common.error')}</Title>
+        <Text style={styles.errorText}>{testError || t('tests.failedToLoadTest')}</Text>
+        <Button onPress={() => router.back()}>{t('common.back')}</Button>
       </SafeAreaView>
     );
   }
@@ -223,7 +230,7 @@ const TestAttemptScreen = () => {
   if (!currentQuestionData) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text>No questions found for this test.</Text>
+        <Text>{t('tests.noQuestions')}</Text>
       </SafeAreaView>
     );
   }
@@ -234,11 +241,11 @@ const TestAttemptScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ title: `Taking Test: ${testData.title_en}` }} />
+      <Stack.Screen options={{ title: t('tests.takingTest', { title: lf(testData.title_en, testData.title_np) }) }} />
 
       <View style={styles.header}>
         <Text style={styles.questionCounter}>
-          Q {currentQuestionIndex + 1}/{testData.test_questions?.length || 0}
+          {t('tests.questionCounter', { current: currentQuestionIndex + 1, total: testData.test_questions?.length || 0 })}
         </Text>
         <Title style={[
           styles.timerText,
@@ -251,16 +258,16 @@ const TestAttemptScreen = () => {
           disabled={submitStatus === 'loading'}
           loading={submitStatus === 'loading'}
         >
-          Finish
+          {t('tests.finish')}
         </Button>
       </View>
-      <ProgressBar progress={questionProgress} style={styles.progressBar} color={Colors.primary} />
+      <ProgressBar progress={questionProgress} style={styles.progressBar} color={colors.primary} />
 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <Card style={styles.questionCard}>
           <Card.Content>
-            <Text style={styles.questionText}>{currentQuestionData.question_text_en}</Text>
-            {currentQuestionData.question_text_np && (
+            <Text style={styles.questionText}>{lf(currentQuestionData.question_text_en, currentQuestionData.question_text_np)}</Text>
+            {currentQuestionData.question_text_np && currentQuestionData.question_text_np !== currentQuestionData.question_text_en && (
               <Text style={styles.questionTextNp}>{currentQuestionData.question_text_np}</Text>
             )}
             <RadioButton.Group
@@ -270,7 +277,7 @@ const TestAttemptScreen = () => {
               {currentQuestionData.answers?.map(option => (
                 <RadioButton.Item
                   key={option.id}
-                  label={option.answer_text_en}
+                  label={lf(option.answer_text_en, option.answer_text_np)}
                   value={option.id.toString()}
                   style={[
                     styles.option,
@@ -290,7 +297,7 @@ const TestAttemptScreen = () => {
           disabled={currentQuestionIndex === 0}
           icon="chevron-left"
         >
-          Previous
+          {t('tests.previous')}
         </Button>
         {currentQuestionIndex === (testData.test_questions?.length || 0) - 1 ? (
           <Button
@@ -299,9 +306,9 @@ const TestAttemptScreen = () => {
             disabled={submitStatus === 'loading'}
             loading={submitStatus === 'loading'}
             icon="check-all"
-            buttonColor={Colors.success}
+            buttonColor={colors.success}
           >
-            Finish & Submit
+            {t('tests.finishAndSubmit')}
           </Button>
         ) : (
           <Button
@@ -310,7 +317,7 @@ const TestAttemptScreen = () => {
             icon="chevron-right"
             contentStyle={styles.nextButtonContent}
           >
-            Next
+            {t('tests.next')}
           </Button>
         )}
       </View>
@@ -318,10 +325,10 @@ const TestAttemptScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorScheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -329,22 +336,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.cardBackground,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   questionCounter: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   timerText: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   timerWarning: {
-    color: Colors.error,
+    color: colors.error,
   },
   progressBar: {
     marginHorizontal: Spacing.base,
@@ -356,7 +363,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.lg,
   },
   questionCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.cardBackground,
     borderRadius: BorderRadius.lg,
     elevation: 2,
   },
@@ -364,33 +371,33 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 26,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: Spacing.base,
   },
   questionTextNp: {
     fontSize: 16,
     lineHeight: 24,
-    color: Colors.primary,
+    color: colors.primary,
     marginBottom: Spacing.base,
   },
   option: {
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.cardBackground,
   },
   selectedOption: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.infoLight,
+    borderColor: colors.primary,
+    backgroundColor: colors.infoLight,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: Spacing.base,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    backgroundColor: Colors.white,
+    borderTopColor: colors.border,
+    backgroundColor: colors.cardBackground,
   },
   nextButtonContent: {
     flexDirection: 'row-reverse',
@@ -398,14 +405,14 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: Spacing.base,
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   errorText: {
     textAlign: 'center',
     margin: Spacing.xl,
     fontSize: 18,
-    color: Colors.error,
+    color: colors.error,
   },
 });
 

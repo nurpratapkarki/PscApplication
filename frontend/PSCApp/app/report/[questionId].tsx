@@ -4,9 +4,12 @@ import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Card, Text, TextInput, Button, RadioButton, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/useApi';
 import { Question } from '../../types/question.types';
-import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
+import { useLocalizedField } from '../../hooks/useLocalizedField';
+import { ColorScheme } from '../../constants/colors';
 import { Spacing, BorderRadius } from '../../constants/typography';
 import { reportQuestion } from '../../services/api/questions';
 import { getAccessToken } from '../../services/api/client';
@@ -20,41 +23,12 @@ interface ReportOption {
   icon: string;
 }
 
-const reportOptions: ReportOption[] = [
-  { 
-    value: 'INCORRECT_ANSWER', 
-    label: 'Incorrect Answer', 
-    description: 'The marked correct answer is wrong',
-    icon: 'close-circle',
-  },
-  {
-    value: 'TYPO',
-    label: 'Typo / Error',
-    description: 'The question or explanation contains a typo or error',
-    icon: 'alert-circle',
-  },
-  { 
-    value: 'DUPLICATE', 
-    label: 'Duplicate Question', 
-    description: 'This question already exists in the bank',
-    icon: 'content-copy',
-  },
-  { 
-    value: 'INAPPROPRIATE', 
-    label: 'Inappropriate Content', 
-    description: 'Contains offensive or inappropriate material',
-    icon: 'alert-octagon',
-  },
-  { 
-    value: 'OTHER', 
-    label: 'Other Issue', 
-    description: 'Some other problem with this question',
-    icon: 'help-circle',
-  },
-];
-
 export default function ReportQuestionScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const colors = useColors();
+  const lf = useLocalizedField();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { questionId } = useLocalSearchParams<{ questionId: string }>();
   
   const { data: question, status: questionStatus } = useApi<Question>(
@@ -65,9 +39,42 @@ export default function ReportQuestionScreen() {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const reportOptions: ReportOption[] = [
+    { 
+      value: 'INCORRECT_ANSWER', 
+      label: t('report.reasonIncorrectLabel'), 
+      description: t('report.reasonIncorrectDesc'),
+      icon: 'close-circle',
+    },
+    {
+      value: 'TYPO',
+      label: t('report.reasonTypoLabel'),
+      description: t('report.reasonTypoDesc'),
+      icon: 'alert-circle',
+    },
+    { 
+      value: 'DUPLICATE', 
+      label: t('report.reasonDuplicateLabel'), 
+      description: t('report.reasonDuplicateDesc'),
+      icon: 'content-copy',
+    },
+    { 
+      value: 'INAPPROPRIATE', 
+      label: t('report.reasonInappropriateLabel'), 
+      description: t('report.reasonInappropriateDesc'),
+      icon: 'alert-octagon',
+    },
+    { 
+      value: 'OTHER', 
+      label: t('report.reasonOtherLabel'), 
+      description: t('report.reasonOtherDesc'),
+      icon: 'help-circle',
+    },
+  ];
+
   const handleSubmit = async () => {
     if (!reason) {
-      Alert.alert('Error', 'Please select a reason for reporting');
+      Alert.alert(t('common.error'), t('report.selectReason'));
       return;
     }
 
@@ -84,12 +91,12 @@ export default function ReportQuestionScreen() {
         token
       );
       Alert.alert(
-        'Report Submitted',
-        'Thank you for your feedback. Our team will review this question.',
-        [{ text: 'OK', onPress: () => router.back() }]
+        t('report.submittedTitle'),
+        t('report.submittedMessage'),
+        [{ text: t('common.ok'), onPress: () => router.back() }]
       );
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to submit report. Please try again.');
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('report.submitFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -98,7 +105,7 @@ export default function ReportQuestionScreen() {
   if (questionStatus === 'loading') {
     return (
       <SafeAreaView style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -110,9 +117,9 @@ export default function ReportQuestionScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.textPrimary} />
+            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Report Question</Text>
+          <Text style={styles.headerTitle}>{t('report.title')}</Text>
           <View style={{ width: 44 }} />
         </View>
 
@@ -122,18 +129,18 @@ export default function ReportQuestionScreen() {
             <Card style={styles.questionCard}>
               <Card.Content>
                 <View style={styles.questionHeader}>
-                  <MaterialCommunityIcons name="help-circle" size={20} color={Colors.primary} />
-                  <Text style={styles.questionLabel}>Question being reported</Text>
+                  <MaterialCommunityIcons name="help-circle" size={20} color={colors.primary} />
+                  <Text style={styles.questionLabel}>{t('report.questionBeingReported')}</Text>
                 </View>
                 <Text style={styles.questionText} numberOfLines={3}>
-                  {question.question_text_en}
+                  {lf(question.question_text_en, question.question_text_np)}
                 </Text>
                 <View style={styles.questionMeta}>
                   <Text style={styles.questionMetaText}>
-                    Category: {question.category_name}
+                    {t('report.categoryLabel')}: {question.category_name}
                   </Text>
                   <Text style={styles.questionMetaText}>
-                    ID: #{question.id}
+                    {t('report.idLabel')}: #{question.id}
                   </Text>
                 </View>
               </Card.Content>
@@ -141,7 +148,7 @@ export default function ReportQuestionScreen() {
           )}
 
           {/* Report Reason Selection */}
-          <Text style={styles.sectionTitle}>What&apos;s wrong with this question?</Text>
+          <Text style={styles.sectionTitle}>{t('report.whatsWrong')}</Text>
           <Card style={styles.reasonCard}>
             <Card.Content>
               <RadioButton.Group onValueChange={(value) => setReason(value as ReportReason)} value={reason || ''}>
@@ -155,12 +162,12 @@ export default function ReportQuestionScreen() {
                     >
                       <View style={[
                         styles.reasonIcon, 
-                        { backgroundColor: (reason === option.value ? Colors.primary : Colors.textTertiary) + '20' }
+                        { backgroundColor: (reason === option.value ? colors.primary : colors.textTertiary) + '20' }
                       ]}>
                         <MaterialCommunityIcons 
                           name={option.icon as any} 
                           size={22} 
-                          color={reason === option.value ? Colors.primary : Colors.textTertiary} 
+                          color={reason === option.value ? colors.primary : colors.textTertiary} 
                         />
                       </View>
                       <View style={styles.reasonTextContainer}>
@@ -172,7 +179,7 @@ export default function ReportQuestionScreen() {
                         </Text>
                         <Text style={styles.reasonDescription}>{option.description}</Text>
                       </View>
-                      <RadioButton value={option.value} color={Colors.primary} />
+                      <RadioButton value={option.value} color={colors.primary} />
                     </TouchableOpacity>
                   </React.Fragment>
                 ))}
@@ -181,19 +188,19 @@ export default function ReportQuestionScreen() {
           </Card>
 
           {/* Additional Details */}
-          <Text style={styles.sectionTitle}>Additional Details (Optional)</Text>
+          <Text style={styles.sectionTitle}>{t('report.additionalDetails')}</Text>
           <Card style={styles.descriptionCard}>
             <Card.Content>
               <TextInput
                 mode="outlined"
-                placeholder="Provide more details about the issue..."
+                placeholder={t('report.detailsPlaceholder')}
                 value={description}
                 onChangeText={setDescription}
                 multiline
                 numberOfLines={4}
                 style={styles.textInput}
-                outlineColor={Colors.border}
-                activeOutlineColor={Colors.primary}
+                outlineColor={colors.border}
+                activeOutlineColor={colors.primary}
               />
               <Text style={styles.charCount}>{description.length}/500</Text>
             </Card.Content>
@@ -203,12 +210,12 @@ export default function ReportQuestionScreen() {
           <Card style={styles.guidelinesCard}>
             <Card.Content>
               <View style={styles.guidelinesHeader}>
-                <MaterialCommunityIcons name="information" size={20} color={Colors.info} />
-                <Text style={styles.guidelinesTitle}>Reporting Guidelines</Text>
+                <MaterialCommunityIcons name="information" size={20} color={colors.info} />
+                <Text style={styles.guidelinesTitle}>{t('report.guidelinesTitle')}</Text>
               </View>
-              <Text style={styles.guidelineText}>• Only report genuine issues with questions</Text>
-              <Text style={styles.guidelineText}>• False reports may affect your account standing</Text>
-              <Text style={styles.guidelineText}>• Our team reviews all reports within 48 hours</Text>
+              <Text style={styles.guidelineText}>• {t('report.guideline1')}</Text>
+              <Text style={styles.guidelineText}>• {t('report.guideline2')}</Text>
+              <Text style={styles.guidelineText}>• {t('report.guideline3')}</Text>
             </Card.Content>
           </Card>
         </ScrollView>
@@ -225,7 +232,7 @@ export default function ReportQuestionScreen() {
             loading={isSubmitting}
             disabled={isSubmitting || !reason}
           >
-            Submit Report
+            {t('report.submit')}
           </Button>
         </View>
       </KeyboardAvoidingView>
@@ -233,9 +240,9 @@ export default function ReportQuestionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+const createStyles = (colors: ColorScheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   header: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
@@ -246,40 +253,40 @@ const styles = StyleSheet.create({
     width: 44, 
     height: 44, 
     borderRadius: 22, 
-    backgroundColor: Colors.white, 
+    backgroundColor: colors.cardBackground, 
     alignItems: 'center', 
     justifyContent: 'center', 
     elevation: 2,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   scrollContent: { padding: Spacing.base, paddingBottom: 100 },
   questionCard: { 
-    backgroundColor: Colors.primaryLight + '20', 
+    backgroundColor: colors.primaryLight + '20', 
     borderRadius: BorderRadius.lg, 
     marginBottom: Spacing.lg,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
+    borderLeftColor: colors.primary,
   },
   questionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
-  questionLabel: { fontSize: 12, color: Colors.primary, fontWeight: '600', marginLeft: Spacing.xs },
-  questionText: { fontSize: 15, color: Colors.textPrimary, lineHeight: 22 },
+  questionLabel: { fontSize: 12, color: colors.primary, fontWeight: '600', marginLeft: Spacing.xs },
+  questionText: { fontSize: 15, color: colors.textPrimary, lineHeight: 22 },
   questionMeta: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     marginTop: Spacing.md,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderTopColor: colors.border,
   },
-  questionMetaText: { fontSize: 12, color: Colors.textSecondary },
+  questionMetaText: { fontSize: 12, color: colors.textSecondary },
   sectionTitle: { 
     fontSize: 16, 
     fontWeight: '700', 
-    color: Colors.textPrimary, 
+    color: colors.textPrimary, 
     marginBottom: Spacing.md,
   },
   reasonCard: { 
-    backgroundColor: Colors.white, 
+    backgroundColor: colors.cardBackground, 
     borderRadius: BorderRadius.xl, 
     marginBottom: Spacing.lg,
   },
@@ -289,12 +296,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   reasonOptionSelected: { 
-    backgroundColor: Colors.primaryLight + '10',
+    backgroundColor: colors.primaryLight + '10',
     marginHorizontal: -Spacing.base,
     paddingHorizontal: Spacing.base,
     borderRadius: BorderRadius.md,
   },
-  optionDivider: { height: 1, backgroundColor: Colors.border },
+  optionDivider: { height: 1, backgroundColor: colors.border },
   reasonIcon: { 
     width: 40, 
     height: 40, 
@@ -304,33 +311,33 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   reasonTextContainer: { flex: 1 },
-  reasonLabel: { fontSize: 15, fontWeight: '500', color: Colors.textPrimary },
-  reasonLabelSelected: { fontWeight: '700', color: Colors.primary },
-  reasonDescription: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  reasonLabel: { fontSize: 15, fontWeight: '500', color: colors.textPrimary },
+  reasonLabelSelected: { fontWeight: '700', color: colors.primary },
+  reasonDescription: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   descriptionCard: { 
-    backgroundColor: Colors.white, 
+    backgroundColor: colors.cardBackground, 
     borderRadius: BorderRadius.xl, 
     marginBottom: Spacing.lg,
   },
-  textInput: { backgroundColor: Colors.white },
+  textInput: { backgroundColor: colors.cardBackground },
   charCount: { 
     fontSize: 11, 
-    color: Colors.textTertiary, 
+    color: colors.textTertiary, 
     textAlign: 'right', 
     marginTop: Spacing.xs,
   },
   guidelinesCard: { 
-    backgroundColor: Colors.infoLight, 
+    backgroundColor: colors.infoLight, 
     borderRadius: BorderRadius.lg,
   },
   guidelinesHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
-  guidelinesTitle: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, marginLeft: Spacing.xs },
-  guidelineText: { fontSize: 13, color: Colors.textSecondary, marginBottom: Spacing.xs, lineHeight: 18 },
+  guidelinesTitle: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginLeft: Spacing.xs },
+  guidelineText: { fontSize: 13, color: colors.textSecondary, marginBottom: Spacing.xs, lineHeight: 18 },
   bottomAction: { 
-    backgroundColor: Colors.white, 
+    backgroundColor: colors.cardBackground, 
     padding: Spacing.base, 
     borderTopWidth: 1, 
-    borderTopColor: Colors.border,
+    borderTopColor: colors.border,
   },
   submitButton: { borderRadius: BorderRadius.lg },
   submitButtonContent: { paddingVertical: Spacing.sm },
