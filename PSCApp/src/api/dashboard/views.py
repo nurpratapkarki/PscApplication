@@ -10,6 +10,7 @@ from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse
@@ -18,13 +19,17 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from src.models import (
+    Branch,
     Category,
     Contribution,
     DailyActivity,
+    MockTest,
+    MockTestQuestion,
     Notification,
     PlatformStats,
     Question,
     QuestionReport,
+    SubBranch,
 )
 
 logger = logging.getLogger(__name__)
@@ -671,6 +676,271 @@ def bulk_publish_questions(request):
 
     messages.success(request, f"{published_count} questions have been published.")
     return redirect("dashboard:questions")
+
+
+# =============================================================================
+# MOCK TESTS MANAGEMENT
+# =============================================================================
+
+
+@staff_member_required
+def mock_tests_list(request):
+    """List and manage mock tests."""
+    tests = MockTest.objects.select_related(
+        "branch", "sub_branch", "created_by"
+    ).order_by("-created_at")
+
+    # Apply filters
+    test_type = request.GET.get("test_type")
+    branch = request.GET.get("branch")
+    search = request.GET.get("search")
+
+    if test_type:
+        tests = tests.filter(test_type=test_type)
+    if branch:
+        tests = tests.filter(branch_id=int(branch))
+    if search:
+        tests = tests.filter(
+            Q(title_en__icontains=search) | Q(title_np__icontains=search)
+        )
+
+    # Get counts
+    official_count = MockTest.objects.filter(test_type="OFFICIAL").count()
+    community_count = MockTest.objects.filter(test_type="COMMUNITY").count()
+    custom_count = MockTest.objects.filter(test_type="CUSTOM").count()
+
+    branches = Branch.objects.filter(is_active=True).order_by("name_en")
+
+    # Pagination
+    paginator = Paginator(tests, 20)
+    page = request.GET.get("page", 1)
+    tests = paginator.get_page(page)
+
+    return render(
+        request,
+        "dashboard/mock_tests.html",
+        {
+            "tests": tests,
+            "branches": branches,
+            "official_count": official_count,
+            "community_count": community_count,
+            "custom_count": custom_count,
+        },
+    )
+
+
+@staff_member_required
+def mock_test_detail(request, pk):
+    """View mock test details with questions."""
+    test = get_object_or_404(
+        MockTest.objects.select_related("branch", "sub_branch", "created_by"),
+        pk=pk,
+    )
+    test_questions = test.test_questions.select_related(
+        "question", "question__category"
+    ).order_by("question_order")
+
+    return render(
+        request,
+        "dashboard/mock_test_detail.html",
+        {"test": test, "test_questions": test_questions},
+    )
+
+
+@staff_member_required
+@require_POST
+def toggle_mock_test_active(request, pk):
+    """Toggle a mock test's active status."""
+    test = get_object_or_404(MockTest, pk=pk)
+    test.is_active = not test.is_active
+    test.save(update_fields=["is_active"])
+
+    status_text = "activated" if test.is_active else "deactivated"
+    messages.success(request, f"Mock test #{pk} has been {status_text}.")
+    return redirect("dashboard:mock_test_detail", pk=pk)
+
+
+@staff_member_required
+def create_mock_test(request):
+    """Create a new mock test with manual or automatic question selection."""
+    branches = Branch.objects.filter(is_active=True).order_by("name_en")
+    categories = Category.objects.filter(is_active=True).order_by("name_en")
+
+    if request.method == "POST":
+        # Basic test info
+        title_en = request.POST.get("title_en", "").strip()
+        title_np = request.POST.get("title_np", "").strip()
+        test_type = request.POST.get("test_type", "OFFICIAL")
+        branch_id = request.POST.get("branch")
+        sub_branch_id = request.POST.get("sub_branch") or None
+        duration_minutes = request.POST.get("duration_minutes")
+        pass_percentage = request.POST.get("pass_percentage", "40")
+        selection_mode = request.POST.get("selection_mode", "auto")
+
+        if not title_en or not branch_id:
+            messages.error(request, "Title and branch are required.")
+            return redirect("dashboard:create_mock_test")
+
+        # Create the mock test
+        test = MockTest(
+            title_en=title_en,
+            title_np=title_np or title_en,
+            test_type=test_type,
+            branch_id=int(branch_id),
+            sub_branch_id=int(sub_branch_id) if sub_branch_id else None,
+            duration_minutes=int(duration_minutes) if duration_minutes else 45,
+            pass_percentage=float(pass_percentage),
+            total_questions=0,
+            created_by=request.user,
+            is_public=True,
+            is_active=True,
+        )
+        test.save()
+
+        if selection_mode == "auto":
+            # Auto mode: distribute questions from categories
+            category_ids = request.POST.getlist("auto_categories")
+            total_count = int(request.POST.get("auto_total", "50"))
+
+            if category_ids:
+                per_category = max(1, total_count // len(category_ids))
+                remainder = total_count - (per_category * len(category_ids))
+                distribution = {}
+                for i, cid in enumerate(category_ids):
+                    extra = 1 if i < remainder else 0
+                    distribution[int(cid)] = per_category + extra
+                test.generate_from_categories(distribution)
+                test.total_questions = test.test_questions.count()
+                test.save(update_fields=["total_questions"])
+        else:
+            # Manual mode: specific question IDs
+            question_ids = request.POST.getlist("question_ids")
+            if question_ids:
+                order = 1
+                mtq_list = []
+                for qid in question_ids:
+                    mtq_list.append(
+                        MockTestQuestion(
+                            mock_test=test,
+                            question_id=int(qid),
+                            question_order=order,
+                            marks_allocated=1.0,
+                        )
+                    )
+                    order += 1
+                MockTestQuestion.objects.bulk_create(mtq_list)
+                test.total_questions = len(mtq_list)
+                test.save(update_fields=["total_questions"])
+
+        messages.success(
+            request, f"Mock test '{title_en}' created with {test.total_questions} questions."
+        )
+        return redirect("dashboard:mock_test_detail", pk=test.pk)
+
+    # GET: show form
+    # Also get questions for manual selection (paginated)
+    questions = Question.objects.filter(status="PUBLIC").select_related(
+        "category"
+    ).order_by("-created_at")[:200]
+    sub_branches = SubBranch.objects.filter(is_active=True).order_by("name_en")
+
+    return render(
+        request,
+        "dashboard/create_mock_test.html",
+        {
+            "branches": branches,
+            "sub_branches": sub_branches,
+            "categories": categories,
+            "questions": questions,
+        },
+    )
+
+
+# =============================================================================
+# USERS MANAGEMENT
+# =============================================================================
+
+
+@staff_member_required
+def users_list(request):
+    """List and manage users."""
+    users = User.objects.select_related("profile").order_by("-date_joined")
+
+    search = request.GET.get("search")
+    role = request.GET.get("role")
+
+    if search:
+        users = users.filter(
+            Q(username__icontains=search)
+            | Q(email__icontains=search)
+            | Q(first_name__icontains=search)
+            | Q(last_name__icontains=search)
+        )
+    if role == "staff":
+        users = users.filter(is_staff=True)
+    elif role == "active":
+        users = users.filter(is_active=True, is_staff=False)
+    elif role == "inactive":
+        users = users.filter(is_active=False)
+
+    total_count = User.objects.count()
+    staff_count = User.objects.filter(is_staff=True).count()
+    active_count = User.objects.filter(
+        is_active=True, last_login__gte=timezone.now() - timedelta(days=30)
+    ).count()
+
+    # Pagination
+    paginator = Paginator(users, 20)
+    page = request.GET.get("page", 1)
+    users = paginator.get_page(page)
+
+    return render(
+        request,
+        "dashboard/users.html",
+        {
+            "users": users,
+            "total_count": total_count,
+            "staff_count": staff_count,
+            "active_count": active_count,
+        },
+    )
+
+
+@staff_member_required
+def user_detail(request, pk):
+    """View user details."""
+    user_obj = get_object_or_404(User.objects.select_related("profile"), pk=pk)
+
+    # Get user stats
+    from src.models import UserStatistics
+
+    stats = UserStatistics.objects.filter(user=user_obj).first()
+    contributions = Contribution.objects.filter(user=user_obj).order_by(
+        "-created_at"
+    )[:10]
+
+    return render(
+        request,
+        "dashboard/user_detail.html",
+        {"profile_user": user_obj, "stats": stats, "contributions": contributions},
+    )
+
+
+@staff_member_required
+@require_POST
+def toggle_user_staff(request, pk):
+    """Toggle a user's staff status."""
+    user_obj = get_object_or_404(User, pk=pk)
+    if user_obj == request.user:
+        messages.error(request, "You cannot change your own staff status.")
+        return redirect("dashboard:user_detail", pk=pk)
+
+    user_obj.is_staff = not user_obj.is_staff
+    user_obj.save(update_fields=["is_staff"])
+
+    status_text = "granted staff access" if user_obj.is_staff else "removed staff access"
+    messages.success(request, f"User {user_obj.username} has been {status_text}.")
+    return redirect("dashboard:user_detail", pk=pk)
 
 
 # =============================================================================

@@ -99,12 +99,6 @@ class PlatformStats(models.Model):
         )
         self.top_contributor_this_month = top_contributor
 
-        # Calculate most attempted category
-        # Approximate by counting questions in category that have high attempted counts
-        # Or finding category with most UserAnswers (expensive join) in recent times
-        # Simplifying: Category with most public questions for now, or random?
-        # Better: Category.objects.filter(questions__user_responses__created_at__gte=thirty_days_ago).annotate(...)
-        # For efficiency, let's skip deep aggregation or use simple approximation
         self.save()
 
     def reset_monthly_stats(self):

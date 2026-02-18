@@ -29,6 +29,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "date_joined",
             "branch_name",
             "sub_branch_name",
+            "expo_push_token",
+            "push_notifications_enabled",
         ]
         read_only_fields = [
             "id",

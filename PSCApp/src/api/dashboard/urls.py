@@ -87,6 +87,31 @@ urlpatterns = [
         views.bulk_publish_questions,
         name="bulk_publish_questions",
     ),
+    # Mock Tests
+    path("mock-tests/", views.mock_tests_list, name="mock_tests"),
+    path(
+        "mock-test/<int:pk>/",
+        views.mock_test_detail,
+        name="mock_test_detail",
+    ),
+    path(
+        "mock-test/create/",
+        views.create_mock_test,
+        name="create_mock_test",
+    ),
+    path(
+        "mock-test/<int:pk>/toggle-active/",
+        views.toggle_mock_test_active,
+        name="toggle_mock_test_active",
+    ),
+    # Users
+    path("users/", views.users_list, name="users"),
+    path("user/<int:pk>/", views.user_detail, name="user_detail"),
+    path(
+        "user/<int:pk>/toggle-staff/",
+        views.toggle_user_staff,
+        name="toggle_user_staff",
+    ),
     # CSV Exports
     path(
         "export/contributions/",

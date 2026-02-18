@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% block title %}{{ profile_user.username }} - Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <a href="{% url 'dashboard:users' %}" class="btn btn-outline-secondary btn-sm mb-3">
+            <i class="fas fa-arrow-left me-1"></i>Back to Users
+        </a>
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h2 class="mb-1">
+                    <i class="fas fa-user-circle me-2 text-primary"></i>{{ profile_user.username }}
+                </h2>
+                <p class="text-muted mb-0">{{ profile_user.email }}</p>
+            </div>
+            <div class="d-flex gap-2">
+                {% if not profile_user.is_superuser %}
+                <form method="post" action="{% url 'dashboard:toggle_user_staff' profile_user.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm {% if profile_user.is_staff %}btn-warning{% else %}btn-success{% endif %}">
+                        {% if profile_user.is_staff %}
+                        <i class="fas fa-user-minus me-1"></i>Remove Staff
+                        {% else %}
+                        <i class="fas fa-user-plus me-1"></i>Make Staff
+                        {% endif %}
+                    </button>
+                </form>
+                {% endif %}
+                <a href="/admin/auth/user/{{ profile_user.id }}/change/" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-edit me-1"></i>Edit in Admin
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- User Info -->
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-id-card me-2"></i>Profile
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Full Name</span>
+                        <strong>{{ profile_user.first_name }} {{ profile_user.last_name }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Role</span>
+                        {% if profile_user.is_superuser %}
+                        <span class="badge bg-danger">Superuser</span>
+                        {% elif profile_user.is_staff %}
+                        <span class="badge bg-warning">Staff</span>
+                        {% else %}
+                        <span class="badge bg-secondary">User</span>
+                        {% endif %}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Active</span>
+                        {% if profile_user.is_active %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Joined</span>
+                        <span>{{ profile_user.date_joined|date:"M d, Y" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Last Login</span>
+                        <span>{{ profile_user.last_login|date:"M d, Y H:i"|default:"Never" }}</span>
+                    </li>
+                    {% if profile_user.profile %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Branch</span>
+                        <strong>{{ profile_user.profile.target_branch.name_en|default:"—" }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Sub-Branch</span>
+                        <strong>{{ profile_user.profile.target_sub_branch.name_en|default:"—" }}</strong>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-chart-bar me-2"></i>Statistics
+            </div>
+            <div class="card-body">
+                {% if stats %}
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Level</span>
+                        <strong>{{ stats.level }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>XP</span>
+                        <strong>{{ stats.total_xp }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Questions Attempted</span>
+                        <strong>{{ stats.total_questions_attempted }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Correct Answers</span>
+                        <strong>{{ stats.total_correct_answers }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Tests Completed</span>
+                        <strong>{{ stats.total_tests_completed }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Current Streak</span>
+                        <strong>{{ stats.current_streak }} days</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Contributions</span>
+                        <strong>{{ stats.total_contributions }}</strong>
+                    </li>
+                </ul>
+                {% else %}
+                <p class="text-muted text-center">No statistics available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Contributions -->
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-file-alt me-2"></i>Recent Contributions
+            </div>
+            <div class="card-body">
+                {% if contributions %}
+                <ul class="list-group list-group-flush">
+                    {% for contrib in contributions %}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'dashboard:contribution_detail' contrib.id %}" class="text-truncate" style="max-width: 200px;">
+                                {{ contrib.question.question_text_en|truncatechars:40 }}
+                            </a>
+                            <span class="badge {% if contrib.status == 'PENDING' %}bg-warning{% elif contrib.status == 'APPROVED' %}bg-success{% elif contrib.status == 'REJECTED' %}bg-danger{% else %}bg-info{% endif %}">
+                                {{ contrib.get_status_display }}
+                            </span>
+                        </div>
+                        <small class="text-muted">{{ contrib.created_at|date:"M d, Y" }}</small>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted text-center">No contributions yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

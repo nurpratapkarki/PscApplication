@@ -26,6 +26,7 @@ dependencies = [
     "django-allauth>=0.57.2",
     "faker>=40.1.0",
     "django-storages[s3]>=1.14",
+    "httpx>=0.28.1",
 ]
 
 [tool.ruff]

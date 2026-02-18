@@ -132,31 +132,31 @@
                             <i class="fas fa-cogs me-1"></i>Management
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/">
+                            <li><a class="dropdown-item" href="/admin/">
                                 <i class="fas fa-user-shield me-2"></i>Admin Panel
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/branch/">
+                            <li><a class="dropdown-item" href="/admin/src/branch/">
                                 <i class="fas fa-sitemap me-2"></i>Branches
                             </a></li>
-                            <li><a class="dropdown-item" href="/category/">
+                            <li><a class="dropdown-item" href="/admin/src/category/">
                                 <i class="fas fa-folder me-2"></i>Categories
                             </a></li>
-                            <li><a class="dropdown-item" href="/mocktest/">
+                            <li><a class="dropdown-item" href="{% url 'dashboard:mock_tests' %}">
                                 <i class="fas fa-clipboard-list me-2"></i>Mock Tests
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/userprofile/">
+                            <li><a class="dropdown-item" href="{% url 'dashboard:users' %}">
                                 <i class="fas fa-users me-2"></i>Users
                             </a></li>
-                            <li><a class="dropdown-item" href="/notification/">
+                            <li><a class="dropdown-item" href="/admin/src/notification/">
                                 <i class="fas fa-bell me-2"></i>Notifications
                             </a></li>
                         </ul>
                     </li>
                     {% if user.is_staff %}
                     <li class="nav-item">
-                        <a class="nav-link" href="/" title="Admin Panel">
+                        <a class="nav-link" href="/admin/" title="Admin Panel">
                             <i class="fas fa-cog me-1"></i>Admin
                         </a>
                     </li>
@@ -166,11 +166,11 @@
                             <i class="fas fa-user-circle me-1"></i>{{ user.username|default:"Admin" }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/password/change/">
+                            <li><a class="dropdown-item" href="/admin/password_change/">
                                 <i class="fas fa-key me-2"></i>Change Password
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/logout/">
+                            <li><a class="dropdown-item" href="/admin/logout/">
                                 <i class="fas fa-sign-out-alt me-2"></i>Logout
                             </a></li>
                         </ul>
@@ -208,16 +208,18 @@
                 <div class="sidebar-menu p-3">
                     <h6 class="text-muted mb-3 px-3"><small>ADMIN SHORTCUTS</small></h6>
                     <nav class="nav flex-column">
-                        <a class="nav-link" href="/">
+                        <a class="nav-link" href="/admin/">
                             <i class="fas fa-tachometer-alt"></i> Admin Home
                         </a>
-                        <a class="nav-link" href="/question/">
+                        <a class="nav-link" href="/admin/src/question/add/">
                             <i class="fas fa-plus-circle"></i> Add Question
                         </a>
-                        <a class="nav-link" href="/mocktest/">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'mock_tests' %}active{% endif %}"
+                           href="{% url 'dashboard:mock_tests' %}">
                             <i class="fas fa-clipboard-list"></i> Mock Tests
                         </a>
-                        <a class="nav-link" href="/userprofile/">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'users' %}active{% endif %}"
+                           href="{% url 'dashboard:users' %}">
                             <i class="fas fa-users"></i> Users
                         </a>
                     </nav>

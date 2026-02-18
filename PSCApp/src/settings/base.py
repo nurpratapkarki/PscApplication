@@ -89,45 +89,39 @@ JAZZMIN_SETTINGS = {
     "custom_links": {
         "src": [
             {
-                "name": "📊 Dashboard",
+                "name": "Dashboard",
                 "url": "/dashboard/",
                 "icon": "fas fa-chart-line",
                 "permissions": ["auth.view_user"],
             },
             {
-                "name": "📝 Contributions",
+                "name": "Contributions",
                 "url": "/dashboard/contributions/",
                 "icon": "fas fa-file-alt",
                 "permissions": ["auth.view_user"],
             },
             {
-                "name": "❓ Questions Manager",
+                "name": "Questions Manager",
                 "url": "/dashboard/questions/",
                 "icon": "fas fa-question-circle",
                 "permissions": ["auth.view_user"],
             },
             {
-                "name": "🚩 Question Reports",
+                "name": "Question Reports",
                 "url": "/dashboard/reports/",
                 "icon": "fas fa-flag",
                 "permissions": ["auth.view_user"],
             },
             {
-                "name": "📥 Export Contributions",
-                "url": "/dashboard/export/contributions/",
-                "icon": "fas fa-download",
+                "name": "Mock Tests",
+                "url": "/dashboard/mock-tests/",
+                "icon": "fas fa-clipboard-list",
                 "permissions": ["auth.view_user"],
             },
             {
-                "name": "📥 Export Questions",
-                "url": "/dashboard/export/questions/",
-                "icon": "fas fa-download",
-                "permissions": ["auth.view_user"],
-            },
-            {
-                "name": "📥 Export Reports",
-                "url": "/dashboard/export/reports/",
-                "icon": "fas fa-download",
+                "name": "User Management",
+                "url": "/dashboard/users/",
+                "icon": "fas fa-users",
                 "permissions": ["auth.view_user"],
             },
         ],
@@ -404,6 +398,10 @@ CELERY_BEAT_SCHEDULE = {
     "monthly-maintenance": {
         "task": "src.tasks.monthly_maintenance",
         "schedule": crontab(day_of_month=1, hour=4, minute=0),
+    },
+    "send-daily-reminder-evening": {
+        "task": "src.tasks.send_daily_reminder",
+        "schedule": crontab(hour=19, minute=30),  # 7:30 PM daily
     },
 }
 

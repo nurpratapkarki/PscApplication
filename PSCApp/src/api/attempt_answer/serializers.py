@@ -78,6 +78,34 @@ class UserAttemptSerializer(serializers.ModelSerializer):
         ]
 
 
+class BulkAnswerItemSerializer(serializers.Serializer):
+    """Serializer for a single answer item within a bulk submission."""
+
+    user_attempt = serializers.IntegerField()
+    question = serializers.IntegerField()
+    selected_answer = serializers.IntegerField(required=False, allow_null=True)
+    time_taken_seconds = serializers.IntegerField(required=False, allow_null=True)
+    is_skipped = serializers.BooleanField(default=False)
+    is_marked_for_review = serializers.BooleanField(default=False)
+
+
+class BulkAnswerSerializer(serializers.Serializer):
+    """Wrapper serializer for bulk answer submission."""
+
+    answers = BulkAnswerItemSerializer(many=True)
+
+    def validate_answers(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one answer is required.")
+        # Ensure all answers reference the same attempt
+        attempt_ids = {item["user_attempt"] for item in value}
+        if len(attempt_ids) > 1:
+            raise serializers.ValidationError(
+                "All answers must belong to the same attempt."
+            )
+        return value
+
+
 class StartAttemptSerializer(serializers.Serializer):
     mock_test_id = serializers.IntegerField(required=False)
     mode = serializers.ChoiceField(

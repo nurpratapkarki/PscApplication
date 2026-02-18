@@ -109,6 +109,7 @@ class Notification(models.Model):
         super().save(*args, **kwargs)
         if is_new:
             self.send_realtime()
+            self.send_push()
 
     def send_realtime(self):
         from asgiref.sync import async_to_sync
@@ -134,6 +135,28 @@ class Notification(models.Model):
         except Exception as e:
             # Log error, don't crash main thread
             logger.warning("Failed to send realtime notification: %s", e)
+
+    def send_push(self):
+        """Send a device push notification via Expo Push API."""
+        from src.services.push import send_push_to_user
+
+        try:
+            data = {"notification_id": self.id, "type": self.notification_type}
+            if self.action_url:
+                data["action_url"] = self.action_url
+            if self.related_question_id:
+                data["related_question"] = self.related_question_id
+            if self.related_mock_test_id:
+                data["related_mock_test"] = self.related_mock_test_id
+
+            send_push_to_user(
+                user=self.user,
+                title_en=self.title_en,
+                body_en=self.message_en,
+                data=data,
+            )
+        except Exception as e:
+            logger.warning("Failed to send push notification: %s", e)
 
     @staticmethod
     def get_unread_count(user):

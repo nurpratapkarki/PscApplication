@@ -14,12 +14,22 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-from src.api.auth.views import GoogleLogin, RegisterView, LoginView
+from src.api.auth.views import (
+    ForgotPasswordView,
+    GoogleLogin,
+    LoginView,
+    RegisterView,
+    ResetPasswordView,
+    VerifyOTPView,
+)
 
 urlpatterns = [
     path("api/auth/user/", include("src.api.user.urls")),
     path("api/auth/registration/", RegisterView.as_view(), name="registration"),
-      path("api/auth/login/", LoginView.as_view(), name="login"),
+    path("api/auth/login/", LoginView.as_view(), name="login"),
+    path("api/auth/forgot-password/", ForgotPasswordView.as_view(), name="forgot_password"),
+    path("api/auth/verify-otp/", VerifyOTPView.as_view(), name="verify_otp"),
+    path("api/auth/reset-password/", ResetPasswordView.as_view(), name="reset_password"),
     path("api/auth/", include("dj_rest_auth.urls")),
     path("api/auth/google/", GoogleLogin.as_view(), name="google_login"),
     path("api/", include("src.api.urls")),

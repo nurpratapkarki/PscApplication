@@ -43,13 +43,19 @@ class MockTestViewSet(viewsets.ModelViewSet):
         {
             "title_en": "Generated Test",
             "branch_id": 1,
-            "category_distribution": {"1": 5, "2": 3}  # category_id: count
+            "category_distribution": {"1": 5, "2": 3},
+            "test_type": "CUSTOM" | "COMMUNITY",  # optional, default CUSTOM
+            "duration_minutes": 30,  # optional
+            "sub_branch_id": 1,  # optional
         }
         """
         data = request.data
         title_en = data.get("title_en", "Generated Test")
         branch_id = data.get("branch_id")
         category_dist = data.get("category_distribution", {})
+        test_type = data.get("test_type", "CUSTOM")
+        duration_minutes = data.get("duration_minutes")
+        sub_branch_id = data.get("sub_branch_id")
 
         if not branch_id or not category_dist:
             return Response(
@@ -57,15 +63,24 @@ class MockTestViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Validate test_type — only CUSTOM and COMMUNITY allowed for user generation
+        if test_type not in ("CUSTOM", "COMMUNITY"):
+            test_type = "CUSTOM"
+
+        # COMMUNITY tests are public, CUSTOM are private
+        is_public = test_type == "COMMUNITY"
+
         # Create basic test object
         test = MockTest.objects.create(
             title_en=title_en,
             title_np=title_en,  # Fallback
             branch_id=branch_id,
+            sub_branch_id=sub_branch_id,
             total_questions=sum(category_dist.values()),
+            duration_minutes=duration_minutes,
             created_by=request.user,
-            test_type="CUSTOM",
-            is_public=False,  # Generated tests are private by default
+            test_type=test_type,
+            is_public=is_public,
         )
 
         # Generate questions

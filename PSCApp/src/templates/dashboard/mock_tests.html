@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% block title %}Mock Tests - Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-clipboard-list me-2"></i>Mock Tests</h2>
+            <p class="text-muted mb-0">Manage official, community, and custom mock tests</p>
+        </div>
+        <a href="{% url 'dashboard:create_mock_test' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>Create Test
+        </a>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <div class="stat-number text-primary">{{ official_count }}</div>
+                <p class="text-muted mb-0">Official Tests</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <div class="stat-number text-success">{{ community_count }}</div>
+                <p class="text-muted mb-0">Community Tests</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <div class="stat-number text-info">{{ custom_count }}</div>
+                <p class="text-muted mb-0">Custom Tests</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Test Type</label>
+                <select name="test_type" class="form-select">
+                    <option value="">All Types</option>
+                    <option value="OFFICIAL" {% if request.GET.test_type == 'OFFICIAL' %}selected{% endif %}>Official</option>
+                    <option value="COMMUNITY" {% if request.GET.test_type == 'COMMUNITY' %}selected{% endif %}>Community</option>
+                    <option value="CUSTOM" {% if request.GET.test_type == 'CUSTOM' %}selected{% endif %}>Custom</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Branch</label>
+                <select name="branch" class="form-select">
+                    <option value="">All Branches</option>
+                    {% for branch in branches %}
+                    <option value="{{ branch.id }}" {% if request.GET.branch == branch.id|stringformat:"d" %}selected{% endif %}>{{ branch.name_en }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Search by title..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tests Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Branch</th>
+                        <th>Questions</th>
+                        <th>Duration</th>
+                        <th>Attempts</th>
+                        <th>Status</th>
+                        <th>Created By</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for test in tests %}
+                    <tr>
+                        <td>{{ test.id }}</td>
+                        <td>
+                            <a href="{% url 'dashboard:mock_test_detail' test.id %}">
+                                {{ test.title_en|truncatechars:40 }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="badge {% if test.test_type == 'OFFICIAL' %}bg-primary{% elif test.test_type == 'COMMUNITY' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ test.get_test_type_display }}
+                            </span>
+                        </td>
+                        <td>{{ test.branch.name_en }}</td>
+                        <td>{{ test.total_questions }}</td>
+                        <td>{{ test.duration_minutes|default:"Flexible" }} min</td>
+                        <td>{{ test.attempt_count }}</td>
+                        <td>
+                            {% if test.is_active %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inactive</span>
+                            {% endif %}
+                            {% if test.is_public %}
+                            <span class="badge bg-info">Public</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Private</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ test.created_by.username|default:"System" }}</td>
+                        <td>
+                            <a href="{% url 'dashboard:mock_test_detail' test.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="/admin/src/mocktest/{{ test.id }}/change/" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">No mock tests found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if tests.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if tests.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ tests.previous_page_number }}&{{ request.GET.urlencode }}">&laquo;</a></li>
+        {% endif %}
+        {% for num in tests.paginator.page_range %}
+        <li class="page-item {% if tests.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}&{{ request.GET.urlencode }}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        {% if tests.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ tests.next_page_number }}&{{ request.GET.urlencode }}">&raquo;</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -7,6 +8,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from src.api.attempt_answer.serializers import (
+    BulkAnswerSerializer,
     StartAttemptSerializer,
     UserAnswerSerializer,
     UserAttemptSerializer,
@@ -14,6 +16,7 @@ from src.api.attempt_answer.serializers import (
 from src.api.permissions import IsOwnerOrReadOnly
 from src.models.attempt_answer import UserAnswer, UserAttempt
 from src.models.mocktest import MockTest
+from src.models.question_answer import Answer, Question
 
 
 class UserAttemptViewSet(viewsets.ModelViewSet):
@@ -125,8 +128,8 @@ class UserAnswerViewSet(viewsets.ModelViewSet):
         # Validate ownership and attempt status
         try:
             attempt = UserAttempt.objects.get(pk=attempt_id)
-        except UserAttempt.DoesNotExist:
-            raise ValidationError("Attempt not found.")
+        except UserAttempt.DoesNotExist as err:
+            raise ValidationError("Attempt not found.") from err
 
         if attempt.user != request.user:
             raise ValidationError("Not authorized for this attempt.")
@@ -150,3 +153,93 @@ class UserAnswerViewSet(viewsets.ModelViewSet):
         serializer.save()
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=False, methods=["post"], url_path="bulk")
+    def bulk_create(self, request):
+        """
+        Bulk create or update answers for an attempt.
+        POST /api/answers/bulk/
+        Payload: { "answers": [{ user_attempt, question, selected_answer, ... }, ...] }
+        """
+        serializer = BulkAnswerSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        answers_data = serializer.validated_data["answers"]
+
+        # Validate attempt ownership and status
+        attempt_id = answers_data[0]["user_attempt"]
+        try:
+            attempt = UserAttempt.objects.get(pk=attempt_id)
+        except UserAttempt.DoesNotExist as err:
+            raise ValidationError({"detail": "Attempt not found."}) from err
+
+        if attempt.user != request.user:
+            raise ValidationError({"detail": "Not authorized for this attempt."})
+
+        if attempt.status != "IN_PROGRESS":
+            raise ValidationError({"detail": "Attempt is not in progress."})
+
+        # Pre-validate all question and answer IDs exist
+        question_ids = {item["question"] for item in answers_data}
+        existing_questions = set(
+            Question.objects.filter(pk__in=question_ids).values_list("pk", flat=True)
+        )
+        missing_questions = question_ids - existing_questions
+        if missing_questions:
+            raise ValidationError(
+                {"detail": f"Questions not found: {missing_questions}"}
+            )
+
+        selected_answer_ids = {
+            item["selected_answer"]
+            for item in answers_data
+            if item.get("selected_answer") is not None
+        }
+        if selected_answer_ids:
+            existing_answers = set(
+                Answer.objects.filter(pk__in=selected_answer_ids).values_list(
+                    "pk", flat=True
+                )
+            )
+            missing_answers = selected_answer_ids - existing_answers
+            if missing_answers:
+                raise ValidationError(
+                    {"detail": f"Answers not found: {missing_answers}"}
+                )
+
+        # Pre-fetch answer correctness in one query to avoid N+1
+        answer_correctness_map = {}
+        if selected_answer_ids:
+            answer_correctness_map = dict(
+                Answer.objects.filter(pk__in=selected_answer_ids).values_list(
+                    "pk", "is_correct"
+                )
+            )
+
+        result_answers = []
+        with transaction.atomic():
+            for item in answers_data:
+                selected_answer_id = item.get("selected_answer")
+                defaults = {
+                    "selected_answer_id": selected_answer_id,
+                    "time_taken_seconds": item.get("time_taken_seconds"),
+                    "is_skipped": item.get("is_skipped", False),
+                    "is_marked_for_review": item.get("is_marked_for_review", False),
+                }
+                # Auto-calculate is_correct from pre-fetched map
+                if selected_answer_id and selected_answer_id in answer_correctness_map:
+                    defaults["is_correct"] = answer_correctness_map[selected_answer_id]
+                    defaults["is_skipped"] = False
+                else:
+                    defaults["is_correct"] = False
+                    if not selected_answer_id:
+                        defaults["is_skipped"] = True
+
+                user_answer, _created = UserAnswer.objects.update_or_create(
+                    user_attempt=attempt,
+                    question_id=item["question"],
+                    defaults=defaults,
+                )
+                result_answers.append(user_answer)
+
+        output_serializer = UserAnswerSerializer(result_answers, many=True)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)

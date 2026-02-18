@@ -1,0 +1,265 @@
+{% extends 'base.html' %}
+{% block title %}Create Mock Test - Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <a href="{% url 'dashboard:mock_tests' %}" class="btn btn-outline-secondary btn-sm mb-3">
+            <i class="fas fa-arrow-left me-1"></i>Back to Mock Tests
+        </a>
+        <h2 class="mb-1"><i class="fas fa-plus-circle me-2"></i>Create Mock Test</h2>
+        <p class="text-muted mb-0">Create an official or community mock test with manual or automatic question selection</p>
+    </div>
+</div>
+
+<form method="post" id="createTestForm">
+    {% csrf_token %}
+
+    <!-- Step 1: Basic Info -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-info-circle me-2"></i>Test Information
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Title (English) <span class="text-danger">*</span></label>
+                    <input type="text" name="title_en" class="form-control" required placeholder="e.g., Kharidar Preliminary Set 1">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Title (Nepali)</label>
+                    <input type="text" name="title_np" class="form-control" placeholder="e.g., खरिदार प्रारम्भिक सेट १">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Test Type <span class="text-danger">*</span></label>
+                    <select name="test_type" class="form-select">
+                        <option value="OFFICIAL">Official PSC Pattern</option>
+                        <option value="COMMUNITY">Community Created</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Branch <span class="text-danger">*</span></label>
+                    <select name="branch" class="form-select" id="branchSelect" required>
+                        <option value="">Select Branch</option>
+                        {% for branch in branches %}
+                        <option value="{{ branch.id }}">{{ branch.name_en }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Sub-Branch</label>
+                    <select name="sub_branch" class="form-select" id="subBranchSelect">
+                        <option value="">None (Branch-level)</option>
+                        {% for sb in sub_branches %}
+                        <option value="{{ sb.id }}" data-branch="{{ sb.branch_id }}">{{ sb.name_en }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Duration (minutes)</label>
+                    <input type="number" name="duration_minutes" class="form-control" value="45" min="5" max="300">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Pass Percentage (%)</label>
+                    <input type="number" name="pass_percentage" class="form-control" value="40" min="0" max="100" step="0.01">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: Question Selection Mode -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-cog me-2"></i>Question Selection Mode
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="selection_mode" id="autoMode" value="auto" checked>
+                        <label class="btn btn-outline-primary" for="autoMode">
+                            <i class="fas fa-magic me-1"></i>Automatic Selection
+                            <small class="d-block text-muted">Pick categories and count, questions are randomly selected</small>
+                        </label>
+                        <input type="radio" class="btn-check" name="selection_mode" id="manualMode" value="manual">
+                        <label class="btn btn-outline-primary" for="manualMode">
+                            <i class="fas fa-hand-pointer me-1"></i>Manual Selection
+                            <small class="d-block text-muted">Hand-pick specific questions for the test</small>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auto Selection Panel -->
+    <div class="card mb-4" id="autoPanel">
+        <div class="card-header">
+            <i class="fas fa-magic me-2"></i>Automatic Question Selection
+        </div>
+        <div class="card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Total Questions</label>
+                    <input type="number" name="auto_total" class="form-control" value="50" min="5" max="200">
+                </div>
+            </div>
+            <label class="form-label">Select Categories (questions will be evenly distributed)</label>
+            <div class="row g-2">
+                {% for cat in categories %}
+                <div class="col-md-4 col-lg-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="auto_categories" value="{{ cat.id }}" id="cat_{{ cat.id }}">
+                        <label class="form-check-label" for="cat_{{ cat.id }}">
+                            {{ cat.name_en }}
+                            <small class="text-muted d-block">
+                                {{ cat.questions.count }} questions
+                                {% if cat.scope_type != 'UNIVERSAL' %}
+                                <span class="badge bg-light text-dark">{{ cat.scope_type }}</span>
+                                {% endif %}
+                            </small>
+                        </label>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Selection Panel -->
+    <div class="card mb-4 d-none" id="manualPanel">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-hand-pointer me-2"></i>Manual Question Selection</span>
+            <span class="badge bg-primary" id="selectedCount">0 selected</span>
+        </div>
+        <div class="card-body">
+            <!-- Search/Filter -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <input type="text" class="form-control" id="questionSearch" placeholder="Search questions...">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="categoryFilter">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}">{{ cat.name_en }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-outline-secondary w-100" id="selectAllVisible">
+                        Select All Visible
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="width:40px"><input type="checkbox" id="selectAllCheckbox"></th>
+                            <th>ID</th>
+                            <th>Question</th>
+                            <th>Category</th>
+                            <th>Difficulty</th>
+                        </tr>
+                    </thead>
+                    <tbody id="questionsList">
+                        {% for q in questions %}
+                        <tr class="question-row" data-category="{{ q.category_id }}" data-text="{{ q.question_text_en|lower }}">
+                            <td>
+                                <input type="checkbox" name="question_ids" value="{{ q.id }}" class="question-checkbox">
+                            </td>
+                            <td>{{ q.id }}</td>
+                            <td>{{ q.question_text_en|truncatechars:80 }}</td>
+                            <td><span class="badge bg-light text-dark">{{ q.category.name_en }}</span></td>
+                            <td>
+                                <span class="badge {% if q.difficulty_level == 'EASY' %}bg-success{% elif q.difficulty_level == 'MEDIUM' %}bg-warning{% else %}bg-danger{% endif %}">
+                                    {{ q.difficulty_level|default:"—" }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit -->
+    <div class="text-end mb-4">
+        <a href="{% url 'dashboard:mock_tests' %}" class="btn btn-secondary me-2">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="fas fa-save me-1"></i>Create Mock Test
+        </button>
+    </div>
+</form>
+
+<script>
+// Toggle auto/manual panels
+document.querySelectorAll('input[name="selection_mode"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+        const isAuto = document.getElementById('autoMode').checked;
+        document.getElementById('autoPanel').classList.toggle('d-none', !isAuto);
+        document.getElementById('manualPanel').classList.toggle('d-none', isAuto);
+    });
+});
+
+// Filter sub-branches by selected branch
+document.getElementById('branchSelect').addEventListener('change', function() {
+    const branchId = this.value;
+    const subSelect = document.getElementById('subBranchSelect');
+    Array.from(subSelect.options).forEach(opt => {
+        if (!opt.value) return; // Keep "None" option
+        opt.style.display = (!branchId || opt.dataset.branch === branchId) ? '' : 'none';
+    });
+    subSelect.value = '';
+});
+
+// Manual selection: search + filter
+const searchInput = document.getElementById('questionSearch');
+const categoryFilter = document.getElementById('categoryFilter');
+
+function filterQuestions() {
+    const search = searchInput.value.toLowerCase();
+    const catId = categoryFilter.value;
+    document.querySelectorAll('.question-row').forEach(row => {
+        const matchText = !search || row.dataset.text.includes(search);
+        const matchCat = !catId || row.dataset.category === catId;
+        row.style.display = (matchText && matchCat) ? '' : 'none';
+    });
+}
+
+searchInput.addEventListener('input', filterQuestions);
+categoryFilter.addEventListener('change', filterQuestions);
+
+// Update selected count
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.question-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = count + ' selected';
+}
+
+document.querySelectorAll('.question-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateSelectedCount);
+});
+
+// Select all visible
+document.getElementById('selectAllVisible').addEventListener('click', () => {
+    document.querySelectorAll('.question-row').forEach(row => {
+        if (row.style.display !== 'none') {
+            row.querySelector('.question-checkbox').checked = true;
+        }
+    });
+    updateSelectedCount();
+});
+
+document.getElementById('selectAllCheckbox').addEventListener('change', function() {
+    document.querySelectorAll('.question-row').forEach(row => {
+        if (row.style.display !== 'none') {
+            row.querySelector('.question-checkbox').checked = this.checked;
+        }
+    });
+    updateSelectedCount();
+});
+</script>
+{% endblock %}

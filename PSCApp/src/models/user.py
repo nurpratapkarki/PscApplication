@@ -53,6 +53,16 @@ class UserProfile(models.Model):
         default=0, help_text="Total questions contributed by user"
     )
     total_questions_attempted = models.IntegerField(default=0)
+    expo_push_token = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Expo push notification token for this device",
+    )
+    push_notifications_enabled = models.BooleanField(
+        default=True,
+        help_text="Whether the user wants to receive push notifications",
+    )
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(auto_now=True)

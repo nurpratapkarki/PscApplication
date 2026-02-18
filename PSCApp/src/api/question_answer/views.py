@@ -6,7 +6,8 @@ from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
-
+from django.utils import timezone
+from src.models.analytics import Contribution
 from src.api.permissions import IsOwnerOrReadOnly
 from src.api.question_answer.serializers import (
     QuestionReportSerializer,
@@ -38,11 +39,8 @@ class QuestionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         question = serializer.save(created_by=self.request.user)
         # Auto-create a Contribution record so the user's contributions are tracked
-        from django.utils import timezone
 
-        from src.models.analytics import Contribution
-
-        Contribution.objects.get_or_create(
+        contribution, created = Contribution.objects.get_or_create(
             user=self.request.user,
             question=question,
             defaults={
@@ -51,6 +49,33 @@ class QuestionViewSet(viewsets.ModelViewSet):
                 "status": "PENDING",
             },
         )
+        if not created and contribution.status == "REJECTED":
+            contribution.status = "PENDING"
+            contribution.rejection_reason = None
+            contribution.contribution_month = timezone.now().month
+            contribution.contribution_year = timezone.now().year
+            
+            contribution.save(update_fields=["status", "rejection_reason", "contribution_month", "contribution_year"]
+            )
+    def perform_update(self, serializer):
+        question = serializer.save()
+        #check if this question have rejected contribution record
+        
+       
+        try : 
+            contribution = Contribution.objects.get(question=question,  user=self.request.user)
+            
+            if contribution.status == "REJECTED":
+                contribution.status = "PENDING"
+                contribution.rejection_reason = None
+                contribution.contribution_month = timezone.now().month
+                contribution.contribution_year = timezone.now().year
+                
+                contribution.save(update_fields=["status", "rejection_reason", "contribution_month", "contribution_year"]
+                )
+                
+        except Contribution.DoesNotExist:
+            pass
 
     def get_queryset(self):
         # Allow users to see their own non-public questions
@@ -165,7 +190,7 @@ class QuestionReportViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(reported_by=self.request.user)
-
+        
     def get_queryset(self):
         # Regular users should only see their own reports? Or maybe none?
         # Usually reports are fire-and-forget for users, but seeing history is good.

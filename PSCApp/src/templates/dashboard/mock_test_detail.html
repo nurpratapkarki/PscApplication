@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block title %}{{ test.title_en }} - Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <a href="{% url 'dashboard:mock_tests' %}" class="btn btn-outline-secondary btn-sm mb-3">
+            <i class="fas fa-arrow-left me-1"></i>Back to Mock Tests
+        </a>
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h2 class="mb-1">{{ test.title_en }}</h2>
+                {% if test.title_np %}<p class="text-muted mb-0">{{ test.title_np }}</p>{% endif %}
+            </div>
+            <div class="d-flex gap-2">
+                <form method="post" action="{% url 'dashboard:toggle_mock_test_active' test.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm {% if test.is_active %}btn-warning{% else %}btn-success{% endif %}">
+                        {% if test.is_active %}
+                        <i class="fas fa-pause me-1"></i>Deactivate
+                        {% else %}
+                        <i class="fas fa-play me-1"></i>Activate
+                        {% endif %}
+                    </button>
+                </form>
+                <a href="/admin/src/mocktest/{{ test.id }}/change/" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-edit me-1"></i>Edit in Admin
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Test Info -->
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i>Test Information
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Type</span>
+                        <span class="badge {% if test.test_type == 'OFFICIAL' %}bg-primary{% elif test.test_type == 'COMMUNITY' %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ test.get_test_type_display }}
+                        </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Branch</span>
+                        <strong>{{ test.branch.name_en }}</strong>
+                    </li>
+                    {% if test.sub_branch %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Sub-Branch</span>
+                        <strong>{{ test.sub_branch.name_en }}</strong>
+                    </li>
+                    {% endif %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Total Questions</span>
+                        <strong>{{ test.total_questions }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Duration</span>
+                        <strong>{{ test.duration_minutes|default:"Flexible" }} min</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Pass %</span>
+                        <strong>{{ test.pass_percentage }}%</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Status</span>
+                        {% if test.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-danger">Inactive</span>{% endif %}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Visibility</span>
+                        {% if test.is_public %}<span class="badge bg-info">Public</span>{% else %}<span class="badge bg-secondary">Private</span>{% endif %}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Attempts</span>
+                        <strong>{{ test.attempt_count }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Created By</span>
+                        <strong>{{ test.created_by.username|default:"System" }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Created</span>
+                        <span>{{ test.created_at|date:"M d, Y" }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Questions List -->
+    <div class="col-md-8 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-list-ol me-2"></i>Questions ({{ test_questions|length }})</span>
+                <a href="/admin/src/mocktestquestion/add/?mock_test={{ test.id }}" class="btn btn-sm btn-light">
+                    <i class="fas fa-plus me-1"></i>Add Question
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:50px">#</th>
+                                <th>Question</th>
+                                <th>Category</th>
+                                <th>Marks</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tq in test_questions %}
+                            <tr>
+                                <td>{{ tq.question_order }}</td>
+                                <td>
+                                    <a href="{% url 'dashboard:question_detail' tq.question.id %}">
+                                        {{ tq.question.question_text_en|truncatechars:60 }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ tq.question.category.name_en }}</span>
+                                </td>
+                                <td>{{ tq.marks_allocated }}</td>
+                                <td>
+                                    <a href="{% url 'dashboard:question_detail' tq.question.id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">No questions added to this test yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

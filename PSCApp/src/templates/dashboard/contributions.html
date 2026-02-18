@@ -369,19 +369,30 @@ document.addEventListener('DOMContentLoaded', function() {
         bulkRejectModal.show();
     });
     
-    // Single Approve buttons
-    document.querySelectorAll('.approve-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            if (confirm('Approve this contribution?')) {
-                fetch(`/dashboard/contribution/${this.dataset.id}/approve/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
-                    }
-                }).then(() => location.reload());
-            }
-        });
+    // Single Approve button
+document.querySelectorAll('.approve-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        if (confirm('Approve this contribution?')) {
+            fetch(`/dashboard/contribution/${this.dataset.id}/approve/`, {
+                method: 'POST',  // ← add this
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                }
+            })
+            .then(response => {
+                if (response.ok) {  // ← check this
+                    location.reload();
+                } else {
+                    alert('Failed to approve contribution');
+                }
+            })
+            .catch(err => {
+                console.error('Error approving contribution:', err);
+                alert('Error approving contribution');
+            });
+        }
     });
+});
     
     // Single Reject buttons
     document.querySelectorAll('.reject-btn').forEach(btn => {

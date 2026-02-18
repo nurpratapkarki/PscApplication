@@ -200,7 +200,44 @@ def check_streak_notifications():
             title_np="आफ्नो स्ट्रिक नगुमाउनुहोस्!",
             message_en=f"You have a {stats.study_streak_days}-day streak. Practice today to keep it going!",
             message_np=f"तपाईंको {stats.study_streak_days} दिनको स्ट्रिक छ। जारी राख्न आज अभ्यास गर्नुहोस्!",
+            action_url="/practice/categories",
         )
         count += 1
 
     logger.info("Streak notifications sent to %d at-risk users", count)
+
+
+@shared_task
+def send_daily_reminder():
+    """
+    Send a daily push reminder to users who haven't practiced today.
+    Runs in the evening to encourage last-chance practice.
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from src.models import UserStatistics
+    from src.services.push import send_push_to_user
+
+    logger.info("Starting daily reminder push notifications")
+
+    today = timezone.now().date()
+    # Users who were active recently but NOT today
+    inactive_today = UserStatistics.objects.filter(
+        last_activity_date__lt=today,
+        last_activity_date__gte=today - timedelta(days=7),
+    ).select_related("user", "user__profile")
+
+    count = 0
+    for stats in inactive_today:
+        sent = send_push_to_user(
+            user=stats.user,
+            title_en="Time to practice!",
+            body_en="A few minutes of daily practice makes a big difference. Start now!",
+            data={"type": "DAILY_REMINDER", "action_url": "/practice/categories"},
+        )
+        if sent:
+            count += 1
+
+    logger.info("Daily reminder push sent to %d users", count)
