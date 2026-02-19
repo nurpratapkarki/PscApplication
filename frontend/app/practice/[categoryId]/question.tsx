@@ -302,7 +302,7 @@ const QuestionScreen = () => {
   const explanationText = currentQuestion ? lf(currentQuestion.explanation_en, currentQuestion.explanation_np) : '';
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Stack.Screen
         options={{
           title: t('practice.practice'),

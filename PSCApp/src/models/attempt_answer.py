@@ -78,6 +78,7 @@ class UserAttempt(models.Model):
     def calculate_results(self):
         total_score = 0
         score_obtained = 0
+        answered_score = 0
 
         # Pre-fetch marks if it's a mock test
         marks_map = {}
@@ -95,14 +96,19 @@ class UserAttempt(models.Model):
                 # In practice mode, total score grows with questions attempted
                 total_score += question_score
 
+            if not ans.is_skipped:
+                answered_score += question_score
+
             if ans.is_correct:
                 score_obtained += question_score
 
         self.score_obtained = score_obtained
         self.total_score = total_score
 
-        if total_score > 0:
-            self.percentage = (score_obtained / total_score) * 100
+        # Calculate accuracy based on answered questions only (not skipped)
+        # This ensures fair leaderboard scoring
+        if answered_score > 0:
+            self.percentage = (score_obtained / answered_score) * 100
         else:
             self.percentage = 0.0
 

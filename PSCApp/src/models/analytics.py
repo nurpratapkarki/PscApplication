@@ -294,8 +294,11 @@ class LeaderBoard(models.Model):
         old_entries.delete()
 
         # 3. Aggregation
-        # Filter attempts
-        attempts = UserAttempt.objects.filter(status="COMPLETED")
+        # Filter attempts — exclude attempts with zero answered questions
+        attempts = UserAttempt.objects.filter(
+            status="COMPLETED",
+            user_answers__is_skipped=False,
+        ).distinct()
         if start_date:
             attempts = attempts.filter(start_time__gte=start_date)
 

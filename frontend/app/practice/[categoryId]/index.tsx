@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, SafeAreaView, ActivityIndicator, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Button, Card, Text, TextInput } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../../hooks/useApi';

@@ -22,7 +22,7 @@ def create_user_profile(sender, instance, created, **kwargs):
     Also handles linking existing profiles when a Google user logs in with an email
     that already exists from a regular signup.
     """
-    
+
     if created:
         # First, check if a profile already exists with this email (from a previous signup)
         existing_profile = UserProfile.objects.filter(email=instance.email).first()
@@ -159,13 +159,17 @@ def handle_user_attempt_save(sender, instance, created, **kwargs):
     Update LeaderBoard and Stats when attempt is completed.
     """
     if instance.status == "COMPLETED" and not created:
-        # Verify this only runs once ideally.
-        # Logic: Update LeaderBoard
+        # Skip leaderboard/stats if user answered zero questions (quit early)
+        answered_count = instance.user_answers.filter(is_skipped=False).count()
+        if answered_count == 0:
+            return
+
+        # Update LeaderBoard
         if instance.mock_test and instance.mock_test.branch:
             LeaderBoard.update_score(
                 user=instance.user,
                 branch=instance.mock_test.branch,
-                score_delta=instance.score_obtained,  # This method needs to exist or be handled differently
+                score_delta=instance.score_obtained,
             )
 
         # Update Stats
@@ -188,6 +192,7 @@ def handle_question_save(sender, instance, created, **kwargs):
     Notify contributor when their question is created.
     """
     from django.db.models import F
+
     from src.models.platform_stats import PlatformStats
 
     if instance.status == "PUBLIC":
