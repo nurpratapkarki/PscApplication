@@ -14,6 +14,9 @@ export const API_ENDPOINTS = {
 	  tokenRefresh: "/token/refresh/",
 	  tokenBlacklist: "/token/blacklist/",
 	  passwordChange: "/api/auth/password/change/",
+	  forgotPassword: "/api/auth/forgot-password/",
+	  verifyOtp: "/api/auth/verify-otp/",
+	  resetPassword: "/api/auth/reset-password/",
 	},
 	branches: {
 	  list: "/api/branches/",

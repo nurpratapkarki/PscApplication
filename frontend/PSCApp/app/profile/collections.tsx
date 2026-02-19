@@ -17,7 +17,7 @@ interface CollectionCardProps {
   onMenuPress: (action: string) => void;
 }
 
-const CollectionCard: React.FC<CollectionCardProps & { colors: ColorScheme; t: (key: string) => string }> = ({ collection, onPress, onMenuPress, colors, t }) => {
+const CollectionCard: React.FC<CollectionCardProps & { colors: ColorScheme; t: (key: string) => string; styles: ReturnType<typeof createStyles> }> = ({ collection, onPress, onMenuPress, colors, t, styles }) => {
   const [menuVisible, setMenuVisible] = useState(false);
 
   const iconColor = collection.color_code || colors.primary;
@@ -37,7 +37,7 @@ const CollectionCard: React.FC<CollectionCardProps & { colors: ColorScheme; t: (
             <View style={styles.titleRow}>
               <Text style={styles.collectionName} numberOfLines={1}>{collection.name}</Text>
               {collection.is_private && (
-                <MaterialCommunityIcons name="lock" size={14} color={Colors.textSecondary} />
+                <MaterialCommunityIcons name="lock" size={14} color={colors.textSecondary} />
               )}
             </View>
             {collection.description && (
@@ -167,6 +167,7 @@ export default function CollectionsScreen() {
               onMenuPress={(action) => handleMenuPress(item.id, action)}
               colors={colors}
               t={t}
+              styles={styles}
             />
           )}
         />

@@ -94,6 +94,35 @@ export async function logout(): Promise<void> {
 	clearTokens();
 }
 
+// Forgot password - request OTP
+export async function forgotPassword(email: string): Promise<{ detail: string; otp?: string }> {
+	return apiRequest<{ detail: string; otp?: string }>(API_ENDPOINTS.auth.forgotPassword, {
+		method: "POST",
+		body: { email },
+	});
+}
+
+// Verify OTP for password reset
+export async function verifyOtp(email: string, otp: string): Promise<{ detail: string; reset_token: string }> {
+	return apiRequest<{ detail: string; reset_token: string }>(API_ENDPOINTS.auth.verifyOtp, {
+		method: "POST",
+		body: { email, otp },
+	});
+}
+
+// Reset password with token
+export async function resetPassword(payload: {
+	email: string;
+	reset_token: string;
+	new_password1: string;
+	new_password2: string;
+}): Promise<{ detail: string }> {
+	return apiRequest<{ detail: string }>(API_ENDPOINTS.auth.resetPassword, {
+		method: "POST",
+		body: payload,
+	});
+}
+
 // Change password via dj-rest-auth
 export async function changePassword(payload: {
 	old_password: string;

@@ -4,11 +4,10 @@ import { Stack, useRouter } from 'expo-router';
 import { Card, Text, Switch, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { useColors } from '../../hooks/useColors';
 import { useSettingsStore } from '../../store/settingsStore';
-import { clearAllQuestionCache } from '../../services/questionCache';
+import { clearAllQuestionCacheMMKV, clearAllApiCache } from '../../services/storage';
 import { Spacing, BorderRadius } from '../../constants/typography';
 
 interface SettingItem {
@@ -37,16 +36,10 @@ export default function ProfileSettingsScreen() {
         {
           text: t('common.delete'),
           style: 'destructive',
-          onPress: async () => {
+          onPress: () => {
             try {
-              await clearAllQuestionCache();
-              const keys = await AsyncStorage.getAllKeys();
-              const keysToRemove = keys.filter(
-                (k) => k !== 'auth-storage' && k !== 'settings-storage'
-              );
-              if (keysToRemove.length > 0) {
-                await AsyncStorage.multiRemove(keysToRemove);
-              }
+              clearAllQuestionCacheMMKV();
+              clearAllApiCache();
               Alert.alert(t('settings.cacheCleared'));
             } catch {
               Alert.alert(t('common.error'), 'Failed to clear cache');
@@ -75,7 +68,7 @@ export default function ProfileSettingsScreen() {
     {
       title: t('settings.dataStorage'),
       items: [
-        { icon: 'download', title: t('settings.offlineContent'), subtitle: t('settings.manageDownloads'), type: 'link', onPress: () => Alert.alert(t('settings.comingSoon'), t('settings.offlineComingSoon')) },
+        { icon: 'download', title: t('settings.offlineContent'), subtitle: t('settings.manageDownloads'), type: 'link', onPress: () => router.push('/profile/offline-content' as any) },
         { icon: 'trash-can', title: t('settings.clearCache'), subtitle: t('settings.freeUpStorage'), type: 'action', onPress: handleClearCache, color: colors.error },
       ],
     },

@@ -145,6 +145,15 @@ export default function LoginScreen() {
               >
                 {t('auth.signIn')}
               </Button>
+              <Button
+                mode="text"
+                onPress={() => router.push('/(auth)/forgot-password')}
+                textColor={Colors.primary}
+                compact
+                style={styles.forgotPasswordButton}
+              >
+                {t('auth.forgotPassword')}
+              </Button>
             </View>
 
             <View style={styles.dividerContainer}>
@@ -288,6 +297,10 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: Spacing.md,
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end' as const,
+    marginTop: Spacing.xs,
   },
   loginButton: {
     borderRadius: BorderRadius.lg,

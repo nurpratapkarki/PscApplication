@@ -10,26 +10,33 @@ import { MockTest } from '../../types/test.types';
 import { useColors } from '../../hooks/useColors';
 import { useLocalizedField } from '../../hooks/useLocalizedField';
 
-const TestCard = React.memo(function TestCard({ 
-  test, 
-  onPress, 
-  colors, 
-  lf 
-}: { 
-  test: MockTest; 
-  onPress: () => void; 
-  colors: ReturnType<typeof import('../../hooks/useColors').useColors>; 
-  lf: ReturnType<typeof import('../../hooks/useLocalizedField').useLocalizedField> 
+const getTestIcon = (type: string): { icon: string; color: (c: any) => string } => {
+  switch (type) {
+    case 'OFFICIAL': return { icon: 'shield-check', color: (c: any) => c.primary };
+    case 'COMMUNITY': return { icon: 'account-group', color: (c: any) => c.secondary };
+    default: return { icon: 'account-circle', color: (c: any) => c.accent };
+  }
+};
+
+const TestCard = React.memo(function TestCard({
+  test,
+  onPress,
+  colors,
+  lf
+}: {
+  test: MockTest;
+  onPress: () => void;
+  colors: ReturnType<typeof import('../../hooks/useColors').useColors>;
+  lf: ReturnType<typeof import('../../hooks/useLocalizedField').useLocalizedField>
 }) {
-  const isOfficial = test.test_type === 'OFFICIAL';
-  const iconBgColor = isOfficial ? colors.primary : colors.secondary;
-  const iconName = isOfficial ? 'shield-check' : 'account-group';
+  const { icon: iconName, color: getColor } = getTestIcon(test.test_type);
+  const iconBgColor = getColor(colors);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
       <View style={[styles.testCard, { backgroundColor: colors.surface }]}>
         <View style={[styles.testIconContainer, { backgroundColor: iconBgColor + '15' }]}>
-          <MaterialCommunityIcons name={iconName} size={24} color={iconBgColor} />
+          <MaterialCommunityIcons name={iconName as any} size={24} color={iconBgColor} />
         </View>
         
         <View style={styles.testContent}>
@@ -69,10 +76,11 @@ export default function TestsScreen() {
   const lf = useLocalizedField();
   const { data: tests, status } = usePaginatedApi<MockTest>('/api/mock-tests/');
 
-  const { officialTests, communityTests } = useMemo(() => {
+  const { officialTests, communityTests, myTests } = useMemo(() => {
     const official = tests?.filter((t) => t.test_type === 'OFFICIAL') || [];
     const community = tests?.filter((t) => t.test_type === 'COMMUNITY') || [];
-    return { officialTests: official, communityTests: community };
+    const custom = tests?.filter((t) => t.test_type === 'CUSTOM') || [];
+    return { officialTests: official, communityTests: community, myTests: custom };
   }, [tests]);
 
   if (status === 'loading') {
@@ -170,6 +178,39 @@ export default function TestsScreen() {
           )}
         </View>
 
+        {/* My Tests Section */}
+        {myTests.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <View style={[styles.sectionIconWrapper, { backgroundColor: colors.accent + '15' }]}>
+                  <MaterialCommunityIcons name="account-circle" size={18} color={colors.accent} />
+                </View>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                  {t('tests.myTests', { defaultValue: 'My Tests' })}
+                </Text>
+              </View>
+              <View style={[styles.countBadge, { backgroundColor: colors.surfaceVariant }]}>
+                <Text style={[styles.countText, { color: colors.textSecondary }]}>
+                  {myTests.length}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.testsContainer}>
+              {myTests.map((test) => (
+                <TestCard
+                  key={test.id}
+                  test={test}
+                  onPress={() => router.push(`/tests/${test.id}`)}
+                  colors={colors}
+                  lf={lf}
+                />
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Community Tests Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -191,12 +232,12 @@ export default function TestsScreen() {
           {communityTests.length > 0 ? (
             <View style={styles.testsContainer}>
               {communityTests.map((test) => (
-                <TestCard 
-                  key={test.id} 
-                  test={test} 
-                  onPress={() => router.push(`/tests/${test.id}`)} 
-                  colors={colors} 
-                  lf={lf} 
+                <TestCard
+                  key={test.id}
+                  test={test}
+                  onPress={() => router.push(`/tests/${test.id}`)}
+                  colors={colors}
+                  lf={lf}
                 />
               ))}
             </View>

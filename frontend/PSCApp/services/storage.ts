@@ -4,6 +4,7 @@
  * react-native-mmkv v4.x exports MMKV as a type only.
  * Use `createMMKV()` to instantiate.
  */
+import type { StateStorage } from 'zustand/middleware';
 import { createMMKV, type MMKV } from 'react-native-mmkv';
 
 // ── Shared instances (created once, reused everywhere) ─────────────────────
@@ -17,7 +18,6 @@ export const attemptStorage: MMKV = createMMKV({ id: 'test-attempt-storage' });
 // ── Zustand MMKV adapter ───────────────────────────────────────────────────
 // Drop-in replacement for createJSONStorage(() => AsyncStorage)
 
-import type { StateStorage } from 'zustand/middleware';
 
 /**
  * Creates a Zustand-compatible StateStorage backed by an MMKV instance.

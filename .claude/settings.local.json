@@ -8,7 +8,8 @@
       "Bash(python -m pip:*)",
       "Bash(git log:*)",
       "Bash(npx tsc:*)",
-      "Bash(DJANGO_SETTINGS_MODULE=src.settings.development uv run python:*)"
+      "Bash(DJANGO_SETTINGS_MODULE=src.settings.development uv run python:*)",
+      "Bash(npx expo install:*)"
     ]
   }
 }

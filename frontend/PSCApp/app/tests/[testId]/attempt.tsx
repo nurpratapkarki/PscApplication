@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, BackHandler, Alert, ScrollView } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, BackHandler, Alert, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button, Card, Text, Title, RadioButton, ProgressBar } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../../hooks/useApi';
@@ -10,7 +11,8 @@ import { useColors } from '../../../hooks/useColors';
 import { useLocalizedField } from '../../../hooks/useLocalizedField';
 import { ColorScheme } from '../../../constants/colors';
 import { Spacing, BorderRadius } from '../../../constants/typography';
-import { attemptStorage } from '../../../services/storage';
+import { attemptStorage, addPendingOperation } from '../../../services/storage';
+import { isOnline } from '../../../hooks/useNetwork';
 
 // ─── MMKV instance (from central storage module) ─────────────────────────────
 const storage = attemptStorage;
@@ -183,35 +185,34 @@ const TestAttemptScreen = () => {
       timerRef.current = null;
     }
 
-    try {
-      // Build bulk payload from local answers state
-      // This is the ONLY time we hit the backend with answers
-      const answerPayloads: UserAnswerCreatePayload[] = Object.entries(answers).map(
-        ([questionId, answerId]) => ({
+    // Build bulk payload from local answers state
+    const answerPayloads: UserAnswerCreatePayload[] = Object.entries(answers).map(
+      ([questionId, answerId]) => ({
+        user_attempt: userAttempt.id,
+        question: parseInt(questionId, 10),
+        selected_answer: answerId,
+        time_taken_seconds: questionTimings.current[parseInt(questionId, 10)] ?? 0,
+        is_skipped: answerId === null,
+        is_marked_for_review: false,
+      })
+    );
+
+    // Also mark unanswered questions as skipped
+    const answeredIds = new Set(Object.keys(answers).map(Number));
+    testData?.test_questions?.forEach(({ question }) => {
+      if (!answeredIds.has(question.id)) {
+        answerPayloads.push({
           user_attempt: userAttempt.id,
-          question: parseInt(questionId, 10),
-          selected_answer: answerId,
-          time_taken_seconds: questionTimings.current[parseInt(questionId, 10)] ?? 0,
-          is_skipped: answerId === null,
+          question: question.id,
+          selected_answer: null,
+          time_taken_seconds: 0,
+          is_skipped: true,
           is_marked_for_review: false,
-        })
-      );
+        });
+      }
+    });
 
-      // Also mark unanswered questions as skipped
-      const answeredIds = new Set(Object.keys(answers).map(Number));
-      testData?.test_questions?.forEach(({ question }) => {
-        if (!answeredIds.has(question.id)) {
-          answerPayloads.push({
-            user_attempt: userAttempt.id,
-            question: question.id,
-            selected_answer: null,
-            time_taken_seconds: 0,
-            is_skipped: true,
-            is_marked_for_review: false,
-          });
-        }
-      });
-
+    try {
       await submitBulkAnswers({ answers: answerPayloads });
       await submitTest();
 
@@ -220,7 +221,27 @@ const TestAttemptScreen = () => {
 
       router.replace(`/tests/${userAttempt.id}/results`);
     } catch {
-      Alert.alert(t('tests.submissionFailed'), t('tests.submissionFailedMsg'));
+      if (!isOnline()) {
+        // Queue for later sync when back online
+        addPendingOperation({
+          endpoint: '/api/answers/bulk/',
+          method: 'POST',
+          body: { answers: answerPayloads },
+        });
+        addPendingOperation({
+          endpoint: `/api/attempts/${userAttempt.id}/submit/`,
+          method: 'POST',
+          body: {},
+        });
+        clearAttemptCache(userAttempt.id);
+        Alert.alert(
+          t('tests.savedOffline', { defaultValue: 'Saved Offline' }),
+          t('tests.savedOfflineMsg', { defaultValue: 'Your answers have been saved. Results will sync when you\'re back online.' }),
+          [{ text: t('common.ok'), onPress: () => router.replace('/(tabs)/tests') }],
+        );
+      } else {
+        Alert.alert(t('tests.submissionFailed'), t('tests.submissionFailedMsg'));
+      }
     }
   }, [userAttempt, answers, testData, submitBulkAnswers, submitTest, router, submitStatus, bulkAnswerStatus, t]);
 
@@ -422,6 +443,14 @@ const TestAttemptScreen = () => {
                 </Text>
               )}
 
+            {!!currentQuestionData.image && (
+              <Image
+                source={{ uri: currentQuestionData.image }}
+                style={styles.questionImage}
+                resizeMode="contain"
+              />
+            )}
+
             <RadioButton.Group
               onValueChange={newValue =>
                 handleAnswerSelect(currentQuestionData.id, parseInt(newValue, 10))
@@ -442,6 +471,14 @@ const TestAttemptScreen = () => {
             </RadioButton.Group>
           </Card.Content>
         </Card>
+
+        <TouchableOpacity
+          style={styles.reportButton}
+          onPress={() => router.push(`/report/${currentQuestionData.id}` as any)}
+        >
+          <MaterialCommunityIcons name="flag-outline" size={16} color={colors.error} />
+          <Text style={styles.reportButtonText}>{t('report.reportQuestion', { defaultValue: 'Report Question' })}</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Footer: prev / next / submit */}
@@ -538,6 +575,13 @@ const createStyles = (colors: ColorScheme) =>
       color: colors.primary,
       marginBottom: Spacing.base,
     },
+    questionImage: {
+      width: '100%' as unknown as number,
+      height: 200,
+      marginTop: Spacing.sm,
+      marginBottom: Spacing.base,
+      borderRadius: BorderRadius.md,
+    },
     option: {
       borderWidth: 1,
       borderColor: colors.border,
@@ -571,6 +615,19 @@ const createStyles = (colors: ColorScheme) =>
       margin: Spacing.xl,
       fontSize: 18,
       color: colors.error,
+    },
+    reportButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginTop: Spacing.md,
+      paddingVertical: Spacing.sm,
+    },
+    reportButtonText: {
+      fontSize: 13,
+      color: colors.error,
+      fontWeight: '500',
     },
   });
 

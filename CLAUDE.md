@@ -161,3 +161,278 @@ const styles = StyleSheet.create({ container: { flex: 1, padding: 16 } });
 **DarkColors only overrides:** `background`, `surface`, `surfaceVariant`, `textPrimary`, `textSecondary`, `textTertiary`, `border`, `borderDark`, `cardBackground`, `cardBorder`
 
 **Brand colors stay constant:** `primary`, `secondary`, `accent`, `success`, `error`, `warning`, `info`, and all their variants
+# Plan after feb 17, 2026
+Plan: Realistic Nepal PSC (Loksewa) Exam Seed Data System
+Context
+The current seed_data.py creates unrealistic placeholder data: 4 generic branches ("Civil Service", "Engineering", "Technical", "Security Forces"), 3 meaningless sub-branches per branch ("Level 4", "Level 5", "Officer"), 5 random-word categories with UNIVERSAL scope only, and Faker-generated gibberish questions. This doesn't reflect Nepal's actual Loksewa (Public Service Commission) examination structure, making the app unusable for real exam preparation workflows.
+
+Goal: Replace the seed data with a comprehensive, logically-driven dataset that mirrors Nepal's PSC hierarchy: 10 real service groups (Sewa), proper post-level sub-branches (Kharidar/Nayab Subba/Section Officer for administrative, Civil/Computer/Electrical for engineering, etc.), properly-scoped categories (UNIVERSAL for common subjects, BRANCH for service-specific, SUBBRANCH for specialization-specific), and realistic MCQ questions with correct Nepal-specific content.
+
+Outcome: A user selecting "Administrative Service > Kharidar" sees General Knowledge + Constitution + Current Affairs (UNIVERSAL) + Public Administration (BRANCH) + Office Management (SUBBRANCH) — exactly what a real Kharidar candidate would study.
+
+Data Structure: Nepal PSC Mapped to Models
+Branches (10 Service Groups)
+#	name_en	name_np	slug	has_sub_branches
+1	Administrative Service	प्रशासन सेवा	administrative-service	True
+2	Engineering Service	ईन्जिनियरिङ सेवा	engineering-service	True
+3	Health Service	स्वास्थ्य सेवा	health-service	True
+4	Education Service	शिक्षा सेवा	education-service	True
+5	Judicial Service	न्याय सेवा	judicial-service	False
+6	Agriculture Service	कृषि सेवा	agriculture-service	True
+7	Forest Service	वन सेवा	forest-service	True
+8	Audit Service	लेखा परीक्षण सेवा	audit-service	False
+9	Foreign Affairs Service	परराष्ट्र सेवा	foreign-affairs-service	False
+10	Miscellaneous Service	विविध सेवा	miscellaneous-service	False
+SubBranches (17 total)
+Administrative Service — post levels:
+
+Kharidar (खरिदार) — Non-Gazetted 2nd Class
+Nayab Subba (नायब सुब्बा) — Non-Gazetted 1st Class
+Section Officer (शाखा अधिकृत) — Gazetted 3rd Class
+Engineering Service — specializations:
+
+Civil Engineering (सिभिल इन्जिनियरिङ)
+Computer Engineering (कम्प्युटर इन्जिनियरिङ)
+Electrical Engineering (विद्युत इन्जिनियरिङ)
+Mechanical Engineering (मेकानिकल इन्जिनियरिङ)
+Health Service — specializations:
+
+General Medicine (सामान्य चिकित्सा)
+Nursing (नर्सिङ)
+Lab Technology (प्रयोगशाला प्रविधि)
+Pharmacy (फार्मेसी)
+Education Service — post levels:
+
+Primary Level Teacher (प्राथमिक तह शिक्षक)
+Secondary Level Teacher (माध्यमिक तह शिक्षक)
+Agriculture Service — specializations:
+
+Agriculture (कृषि)
+Livestock Development (पशुपालन विकास)
+Forest Service — specializations:
+
+Forestry (वन)
+Soil Conservation (भू-संरक्षण)
+Categories (~55 total)
+12 UNIVERSAL categories (scope_type=UNIVERSAL, visible to ALL users):
+
+General Knowledge (सामान्य ज्ञान)
+Constitution of Nepal (नेपालको संविधान)
+Current Affairs (समसामयिक घटना)
+Lok Sewa Regulations (लोक सेवा नियमावली)
+Nepali Language & Grammar (नेपाली भाषा र व्याकरण)
+English Language (अंग्रेजी भाषा)
+Quantitative Aptitude (परिमाणात्मक योग्यता)
+Reasoning & Mental Ability (तर्क र मानसिक क्षमता)
+Computer Knowledge (कम्प्युटर ज्ञान)
+Good Governance & Ethics (सुशासन र नैतिकता)
+Geography of Nepal (नेपालको भूगोल)
+History of Nepal (नेपालको इतिहास)
+~20 BRANCH-scoped categories (examples per branch):
+
+Administrative: Public Administration, Financial Administration, Public Service Management, Office Procedures & Management
+Engineering: Engineering Mathematics, Applied Mechanics, Engineering Drawing
+Health: Public Health, Epidemiology, Health Policy & Planning
+Education: Education Policy, Pedagogy & Teaching Methods, Curriculum Development
+Judicial: Legal System of Nepal, Criminal Law, Civil Law
+Agriculture: Agricultural Science, Crop Science
+Forest: Forest Management, Environmental Science
+Audit: Accounting & Auditing, Financial Management
+~20 SUBBRANCH-scoped categories (examples):
+
+Admin > Kharidar: Office Management (Kharidar Level), Clerical Procedures
+Admin > Section Officer: Policy Analysis, Organizational Behavior
+Engineering > Civil: Structural Analysis, Surveying, Transportation Engineering
+Engineering > Computer: Data Structures & Algorithms, Database Management, Networking
+Health > Nursing: Nursing Fundamentals, Patient Care
+Education > Primary: Primary Education Methods, Child Psychology
+User Flow Verification
+Admin > Section Officer sees: 12 universal + 4 branch + 2 subbranch = ~18 categories
+Engineering > Computer sees: 12 universal + 3 branch + 3 subbranch = ~18 categories
+Judicial (no sub-branches) sees: 12 universal + 3 branch = ~15 categories
+
+Question Template System
+Approach
+Instead of fake.sentence() + "?", each category has a pool of realistic question templates:
+
+Static questions (~60%) — Pre-written with real Nepal facts (presidents, constitution articles, districts, rivers)
+Parametric templates (~40%) — Templates with variable slots filled by generators (math, series, percentages)
+Template Structure
+
+{
+    "question_text_en": "Who was the first President of Nepal?",
+    "question_text_np": "नेपालको पहिलो राष्ट्रपति को हुन्?",
+    "answers": [
+        {"text_en": "Ram Baran Yadav", "text_np": "रामवरण यादव", "is_correct": True},
+        {"text_en": "Bidya Devi Bhandari", "text_np": "विद्यादेवी भण्डारी", "is_correct": False},
+        {"text_en": "KP Sharma Oli", "text_np": "केपी शर्मा ओली", "is_correct": False},
+        {"text_en": "Girija Prasad Koirala", "text_np": "गिरिजाप्रसाद कोइराला", "is_correct": False},
+    ],
+    "explanation_en": "Ram Baran Yadav was elected as the first President of Nepal on July 23, 2008.",
+    "explanation_np": "रामवरण यादव सन् २००८ जुलाई २३ मा नेपालको पहिलो राष्ट्रपतिमा निर्वाचित भए।",
+    "difficulty": "EASY",
+    "source_reference": "PSC General Knowledge",
+}
+Question Targets per Category Type
+UNIVERSAL categories: 20-25 questions each (~240-300 total)
+BRANCH categories: 10-15 questions each (~200-300 total)
+SUBBRANCH categories: 5-10 questions each (~100-200 total)
+Total: ~540-800 questions
+Parametric Generators (for Math/Reasoning)
+generate_percentage_question() — "What is 25% of 400?"
+generate_series_question() — "Complete: 2, 6, 18, 54, ?"
+generate_ratio_question() — "If A:B = 3:5 and B:C = 2:3..."
+generate_age_problem() — "A is twice as old as B..."
+Mock Tests & Time Configurations
+Mock Tests (~12 total)
+Each follows real PSC exam patterns:
+
+Test	Branch	SubBranch	Questions	Duration	Pass %
+Kharidar Prelim Set 1	Administrative	Kharidar	50	45 min	40%
+Kharidar Prelim Set 2	Administrative	Kharidar	50	45 min	40%
+Nayab Subba Prelim Set 1	Administrative	Nayab Subba	50	45 min	40%
+Section Officer Prelim Set 1	Administrative	Section Officer	50	45 min	40%
+Engineering General Set 1	Engineering	None	50	45 min	40%
+Civil Engineering Set 1	Engineering	Civil	50	45 min	40%
+Computer Engineering Set 1	Engineering	Computer	50	45 min	40%
+Health Service Set 1	Health	None	50	45 min	40%
+Nursing Set 1	Health	Nursing	50	45 min	40%
+Education Set 1	Education	None	50	45 min	40%
+Judicial Set 1	Judicial	None	50	45 min	40%
+Agriculture Set 1	Agriculture	None	50	45 min	40%
+Category Distribution per Test (PSC pattern)
+
+Kharidar Prelim:
+  General Knowledge: 10, Constitution: 8, Current Affairs: 7,
+  Quant: 5, Reasoning: 5, Nepali: 5, English: 5, Computer: 5
+Time Configurations
+One per branch (default) + overrides for sub-branches with different patterns.
+
+File Structure
+
+PSCApp/src/
+  seed_data/                          # NEW package
+    __init__.py
+    constants.py                      # Nepal data pools, colors, Nepali numerals
+    branches.py                       # Branch + SubBranch definitions
+    categories.py                     # Category definitions (UNIVERSAL/BRANCH/SUBBRANCH)
+    mock_tests.py                     # MockTest definitions + category distributions
+    time_configs.py                   # TimeConfiguration definitions
+    generators.py                     # Math/reasoning question generators
+    questions/                        # Question templates by category
+      __init__.py
+      general_knowledge.py
+      constitution.py
+      current_affairs.py
+      lok_sewa.py
+      nepali_language.py
+      english_language.py
+      quantitative_aptitude.py
+      reasoning.py
+      computer_knowledge.py
+      governance_ethics.py
+      geography.py
+      history.py
+      administrative.py              # Branch + subbranch specific
+      engineering.py                  # Branch + subbranch specific
+      health.py
+      education.py
+      judicial.py
+      agriculture_forest.py
+  management/commands/
+    seed_data.py                      # REPLACE existing with new orchestrator
+Implementation Steps
+Step 1: Create seed_data/ package with constants
+File: PSCApp/src/seed_data/__init__.py, constants.py
+Nepal data pools: 77 district names, rivers, mountains, presidents/PMs, constitutional articles
+Nepali number converter, color palette, difficulty weights
+Step 2: Define branches and sub-branches
+File: PSCApp/src/seed_data/branches.py
+10 branches + 17 sub-branches as Python dicts
+All bilingual with proper Nepali text
+Step 3: Define categories with scope mapping
+File: PSCApp/src/seed_data/categories.py
+12 UNIVERSAL + ~20 BRANCH + ~20 SUBBRANCH categories
+Each with proper scope_type, target_branch (by slug), target_sub_branch (by slug)
+Step 4: Build question templates (the bulk of work)
+Files: PSCApp/src/seed_data/questions/*.py
+15-25 static questions per UNIVERSAL category
+8-15 per BRANCH category, 5-10 per SUBBRANCH category
+Parametric generators for math/reasoning in generators.py
+Step 5: Define mock tests and time configs
+Files: PSCApp/src/seed_data/mock_tests.py, time_configs.py
+12 mock tests with category distribution maps
+Time configs per branch/sub-branch
+Step 6: Rewrite seed_data.py management command
+File: PSCApp/src/management/commands/seed_data.py
+Idempotent via get_or_create on slugs
+New flags: --flush, --skip-users, --skip-attempts, --questions-per-category
+Creates in dependency order: Branches → SubBranches → Categories → Questions/Answers → MockTests → TimeConfigs → Users → Attempts
+Uses bulk_create for Questions/Answers to avoid signal noise
+Step 7: Update frontend icon mapping
+File: frontend/PSCApp/app/(auth)/profile-setup.tsx (line 211-221)
+Update getBranchIcon() slug-to-icon mapping to match new branch slugs:
+
+administrative-service → account-tie
+engineering-service → hard-hat
+health-service → hospital-box
+education-service → school
+judicial-service → gavel
+agriculture-service → sprout
+forest-service → tree
+audit-service → calculator
+foreign-affairs-service → earth
+miscellaneous-service → folder-multiple
+Step 8: Update CLAUDE.md with the data model documentation
+Add PSC data hierarchy documentation to CLAUDE.md so future sessions understand the structure
+Critical Files to Modify
+File	Action
+PSCApp/src/seed_data/ (new package, ~18 files)	CREATE
+PSCApp/src/management/commands/seed_data.py	REPLACE
+frontend/PSCApp/app/(auth)/profile-setup.tsx	EDIT (icon mapping, lines 211-221)
+CLAUDE.md	EDIT (add PSC data structure docs)
+Files to Read (not modify)
+File	Why
+PSCApp/src/models/branch.py	Branch, SubBranch, Category models + validation
+PSCApp/src/models/question_answer.py	Question, Answer models
+PSCApp/src/models/mocktest.py	MockTest, MockTestQuestion models
+PSCApp/src/models/time_config.py	TimeConfiguration model
+PSCApp/src/signals.py	Understand signal side-effects during seeding
+Verification Plan
+Run seed: cd PSCApp && uv run python manage.py seed_data
+Check counts in Django shell:
+Branch.objects.count() → 10
+SubBranch.objects.count() → 17
+Category.objects.filter(scope_type="UNIVERSAL").count() → 12
+Category.objects.filter(scope_type="BRANCH").count() → ~20
+Category.objects.filter(scope_type="SUBBRANCH").count() → ~20
+Question.objects.filter(status="PUBLIC").count() → ~500+
+Simulate user flow: Call Category.get_categories_for_user(user) for a user with target_branch=Administrative, target_sub_branch=Kharidar — verify they see universal + admin branch + kharidar subbranch categories
+API test: curl /api/branches/ and curl /api/categories/for-user/
+Idempotency: Run seed_data twice — counts should not double
+Flush: Run seed_data --flush — clean recreate
+Frontend: Walk through profile setup, verify branches/sub-branches display correctly, practice categories are filtered properly
+
+# todo on this plan: 
+
+Create seed_data/ package with constants.py (Nepal data pools, colors) *done*
+
+Create branches.py (10 branches + 17 sub-branches) *done*
+
+Create categories.py (12 UNIVERSAL + ~20 BRANCH + ~20 SUBBRANCH) *done*
+
+Create question generators.py (math/reasoning helpers) *done*
+
+Create question templates for UNIVERSAL categories (12 files) * done *
+
+Create question templates for BRANCH/SUBBRANCH categories (6 files)
+
+Create mock_tests.py and time_configs.py definitions *done but check if it is correct*
+
+Rewrite seed_data.py management command
+
+Update frontend profile-setup.tsx icon mapping
+
+Update CLAUDE.md with PSC data structure docs
+
+Test: run seed_data command and verify

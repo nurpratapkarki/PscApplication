@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Button, Card, Text, ProgressBar, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -348,6 +348,13 @@ const QuestionScreen = () => {
             {!!questionTextSecondary && questionTextSecondary !== questionText && (
               <Text style={styles.questionTextNp}>{questionTextSecondary}</Text>
             )}
+            {!!currentQuestion.image && (
+              <Image
+                source={{ uri: currentQuestion.image }}
+                style={styles.questionImage}
+                resizeMode="contain"
+              />
+            )}
           </Card.Content>
         </Card>
 
@@ -374,6 +381,16 @@ const QuestionScreen = () => {
               <Text style={styles.explanationText}>{explanationText}</Text>
             </Card.Content>
           </Card>
+        )}
+
+        {showExplanation && (
+          <TouchableOpacity
+            style={styles.reportButton}
+            onPress={() => router.push(`/report/${currentQuestion.id}` as any)}
+          >
+            <MaterialCommunityIcons name="flag-outline" size={16} color={colors.error} />
+            <Text style={styles.reportButtonText}>{t('report.reportQuestion', { defaultValue: 'Report Question' })}</Text>
+          </TouchableOpacity>
         )}
       </ScrollView>
 
@@ -419,6 +436,7 @@ const createStyles = (colors: ColorScheme) => StyleSheet.create({
   difficultyText: { fontSize: 11, fontWeight: '600', color: colors.warning, textTransform: 'uppercase' },
   questionText: { fontSize: 18, fontWeight: '600', color: colors.textPrimary, lineHeight: 26 },
   questionTextNp: { fontSize: 16, color: colors.primary, marginTop: Spacing.sm, lineHeight: 24 },
+  questionImage: { width: '100%' as unknown as number, height: 200, marginTop: Spacing.md, borderRadius: BorderRadius.md },
   optionsContainer: { gap: Spacing.md },
   option: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.cardBackground, padding: Spacing.base, borderRadius: BorderRadius.md, borderWidth: 2, borderColor: colors.border },
   selectedOption: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.infoLight, padding: Spacing.base, borderRadius: BorderRadius.md, borderWidth: 2, borderColor: colors.primary },
@@ -434,4 +452,6 @@ const createStyles = (colors: ColorScheme) => StyleSheet.create({
   actionButton: { borderRadius: BorderRadius.lg },
   offlineBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.warningLight, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.base },
   offlineBannerText: { fontSize: 12, fontWeight: '600', color: colors.warning },
+  reportButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: Spacing.md, paddingVertical: Spacing.sm },
+  reportButtonText: { fontSize: 13, color: colors.error, fontWeight: '500' },
 });

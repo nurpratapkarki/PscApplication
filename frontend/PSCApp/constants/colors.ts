@@ -88,5 +88,10 @@ export const DarkColors = {
   cardBorder: '#334155',
 } as const;
 
-export type ColorScheme = typeof Colors;
+// Use a mapped type so DarkColors overrides are assignable
+export type ColorScheme = {
+  [K in keyof typeof Colors]: (typeof Colors)[K] extends readonly string[]
+    ? readonly string[]
+    : string;
+};
 
