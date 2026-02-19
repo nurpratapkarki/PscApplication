@@ -8,6 +8,7 @@ module.exports = defineConfig([
     ignores: ['dist/*'],
     rules: {
       'import/no-unresolved': 'off',
+      'import/no-named-as-default-member': 'off',
     },
   },
 ]);

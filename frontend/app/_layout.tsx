@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Stack } from "expo-router";
 import { PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -9,6 +9,8 @@ import { useSettingsStore } from "../store/settingsStore";
 import { useColors } from "../hooks/useColors";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 import { useNetwork } from "../hooks/useNetwork";
+import mobileAds from 'react-native-google-mobile-ads';
+import { interstitialAdService } from '../services/ads/interstitialAd';
 
 export default function RootLayout() {
   const language = useSettingsStore((state) => state.language);
@@ -17,6 +19,14 @@ export default function RootLayout() {
 
   usePushNotifications();
   useNetwork();
+  useEffect(() => {
+  mobileAds()
+    .initialize()
+    .then(() => {
+      interstitialAdService.preload();
+    })
+    .catch(() => {});
+}, []);
 
   if (i18n.language !== language) {
     i18n.changeLanguage(language);

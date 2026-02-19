@@ -13,13 +13,14 @@ import { ColorScheme } from '../../../constants/colors';
 import { Spacing, BorderRadius } from '../../../constants/typography';
 import { attemptStorage, addPendingOperation } from '../../../services/storage';
 import { isOnline } from '../../../hooks/useNetwork';
+import { useAdInterstitial } from '../../../hooks/useInterstitialAd';
 
 // ─── MMKV instance (from central storage module) ─────────────────────────────
 const storage = attemptStorage;
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 const ATTEMPT_KEY = (attemptId: number) => `attempt_${attemptId}_answers`;
-const TIME_KEY    = (attemptId: number) => `attempt_${attemptId}_timeLeft`;
+const TIME_KEY = (attemptId: number) => `attempt_${attemptId}_timeLeft`;
 
 function saveAnswers(attemptId: number, answers: Record<number, number | null>) {
   storage.set(ATTEMPT_KEY(attemptId), JSON.stringify(answers));
@@ -96,13 +97,13 @@ const TestAttemptScreen = () => {
   const [timeLeft, setTimeLeft] = useState(-1); // -1 = not yet initialized
 
   // ── Refs ───────────────────────────────────────────────────────────────────
-  const timerRef             = useRef<ReturnType<typeof setInterval> | null>(null);
-  const hasAutoSubmitted     = useRef(false);
-  const timerInitialized     = useRef(false);
-  const hasInitialized       = useRef(false);
-  const questionStartTime    = useRef(Date.now());
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasAutoSubmitted = useRef(false);
+  const timerInitialized = useRef(false);
+  const hasInitialized = useRef(false);
+  const questionStartTime = useRef(Date.now());
   // Track time-per-question locally so we can send it on submit
-  const questionTimings      = useRef<Record<number, number>>({});
+  const questionTimings = useRef<Record<number, number>>({});
 
   // ── Step 1: Start attempt ──────────────────────────────────────────────────
   useEffect(() => {
@@ -174,7 +175,7 @@ const TestAttemptScreen = () => {
       }
     };
   }, [testData, timeLeft > 0]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  const { showAfterMockTest } = useAdInterstitial();
   // ── Final submission ───────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
     if (!userAttempt || submitStatus === 'loading' || bulkAnswerStatus === 'loading') return;
@@ -218,8 +219,10 @@ const TestAttemptScreen = () => {
 
       // Clean up cache — test is done
       clearAttemptCache(userAttempt.id);
-
-      router.replace(`/tests/${userAttempt.id}/results`);
+      const attemptId = userAttempt.id;
+      showAfterMockTest(() => {
+        router.replace(`/tests/${attemptId}/results`);
+      });
     } catch {
       if (!isOnline()) {
         // Queue for later sync when back online
@@ -243,7 +246,7 @@ const TestAttemptScreen = () => {
         Alert.alert(t('tests.submissionFailed'), t('tests.submissionFailedMsg'));
       }
     }
-  }, [userAttempt, answers, testData, submitBulkAnswers, submitTest, router, submitStatus, bulkAnswerStatus, t]);
+  }, [userAttempt, answers, testData, submitBulkAnswers, submitTest, router, submitStatus, bulkAnswerStatus, t, showAfterMockTest]);
 
   // ── Auto-submit when timer hits 0 ─────────────────────────────────────────
   useEffect(() => {
@@ -271,7 +274,7 @@ const TestAttemptScreen = () => {
     };
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, []);
+  }, [t]);
 
   // ── Answer selection — pure local state, no API call ──────────────────────
   const handleAnswerSelect = useCallback(

@@ -14,7 +14,7 @@ import { Question, AnswerOption } from '../../../types/question.types';
 import { cacheQuestions, getCachedQuestions } from '../../../services/questionCache';
 import { ColorScheme } from '../../../constants/colors';
 import { Spacing, BorderRadius } from '../../../constants/typography';
-
+import { useAdInterstitial } from '../../../hooks/useInterstitialAd';
 const QUESTION_TIME_SECONDS = 30;
 
 function AnswerOptionItemBase({
@@ -81,6 +81,7 @@ const QuestionScreen = () => {
   const shuffleQuestions = useSettingsStore((s) => s.shuffleQuestions);
   const showExplanationsPref = useSettingsStore((s) => s.showExplanations);
   const autoAdvance = useSettingsStore((s) => s.autoAdvance);
+  const { showAfterPractice } = useAdInterstitial();
 
   const { data: apiQuestions, status: apiStatus, execute: fetchQuestions } = usePaginatedApi<Question>('/api/questions/', true);
   const [cachedFallback, setCachedFallback] = useState<Question[] | null>(null);
@@ -139,7 +140,7 @@ const QuestionScreen = () => {
   const showExplanationRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleNextRef = useRef<() => void>(() => {});
+  const handleNextRef = useRef<() => void>(() => { });
 
   // Keep refs in sync
   useEffect(() => { selectedAnswerRef.current = selectedAnswer; }, [selectedAnswer]);
@@ -235,13 +236,15 @@ const QuestionScreen = () => {
       setTimeLeft(QUESTION_TIME_SECONDS);
     } else {
       completeSession();
-      const score = answers.filter((a) => a.isCorrect).length;
-      router.replace({
-        pathname: '/practice/results',
-        params: { score: String(score), total: String(totalQuestions) },
+      const finalScore = answers.filter((a) => a.isCorrect).length;
+      showAfterPractice(() => {
+        router.replace({
+          pathname: '/practice/results',
+          params: { score: String(finalScore), total: String(totalQuestions) },
+        });
       });
     }
-  }, [currentIndex, totalQuestions, answers, router, completeSession]);
+  }, [currentIndex, totalQuestions, answers, router, completeSession, showAfterPractice]);
 
   // Keep handleNextRef in sync so autoAdvance timeout calls the latest version
   useEffect(() => { handleNextRef.current = handleNext; }, [handleNext]);
@@ -255,14 +258,16 @@ const QuestionScreen = () => {
         onPress: () => {
           completeSession();
           const finalScore = answers.filter((a) => a.isCorrect).length;
-          router.replace({
-            pathname: '/practice/results',
-            params: { score: String(finalScore), total: String(currentIndex + 1) },
+          showAfterPractice(() => {
+            router.replace({
+              pathname: '/practice/results',
+              params: { score: String(finalScore), total: String(currentIndex + 1) },
+            });
           });
         },
       },
     ]);
-  }, [answers, currentIndex, router, completeSession, t]);
+  }, [answers, currentIndex, router, completeSession, t, showAfterPractice]);
 
   // Cleanup on unmount
   useEffect(() => {
