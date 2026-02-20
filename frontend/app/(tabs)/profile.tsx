@@ -5,7 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ImageBackground,
+  
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Avatar, Text, ActivityIndicator } from 'react-native-paper';
@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/useApi';
 import { UserProfile, UserStatistics } from '../../types/user.types';
 import { useColors } from '../../hooks/useColors';
-import { Spacing, BorderRadius } from '../../constants/typography';
+import { Spacing,  } from '../../constants/typography';
 import { useAuth } from '../../hooks/useAuth';
 
 interface MenuItem {
