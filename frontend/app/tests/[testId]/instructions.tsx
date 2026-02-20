@@ -1,21 +1,19 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { Button, Card, Text, ActivityIndicator, Checkbox } from 'react-native-paper';
+import { Button, Text, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../../hooks/useApi';
 import { MockTest } from '../../../types/test.types';
 import { useColors } from '../../../hooks/useColors';
-import { ColorScheme } from '../../../constants/colors';
-import { Spacing, BorderRadius } from '../../../constants/typography';
+
 
 const TestInstructionsScreen = () => {
   const router = useRouter();
   const { t } = useTranslation();
   const colors = useColors();
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ testId: string | string[] }>();
   const [agreed, setAgreed] = React.useState(false);
 
@@ -24,11 +22,14 @@ const TestInstructionsScreen = () => {
     return params.testId;
   }, [params.testId]);
 
-  const { data: test, status, error } = useApi<MockTest>(testId ? `/api/mock-tests/${testId}/` : '', !testId);
+  const { data: test, status, error } = useApi<MockTest>(
+    testId ? `/api/mock-tests/${testId}/` : '',
+    !testId
+  );
 
   if (!testId || status === 'loading' || status === 'idle') {
     return (
-      <SafeAreaView style={styles.loaderContainer}>
+      <SafeAreaView style={[styles.loaderContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
@@ -36,126 +37,322 @@ const TestInstructionsScreen = () => {
 
   if (status === 'error' || !test) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
+      <SafeAreaView style={[styles.errorContainer, { backgroundColor: colors.background }]}>
         <MaterialCommunityIcons name="alert-circle" size={60} color={colors.error} />
-        <Text style={styles.errorText}>{error || t('tests.failedToLoadInstructions')}</Text>
+        <Text style={[styles.errorText, { color: colors.textSecondary }]}>
+          {error || t('tests.failedToLoadInstructions')}
+        </Text>
         <Button mode="outlined" onPress={() => router.back()}>{t('common.back')}</Button>
       </SafeAreaView>
     );
   }
 
   const instructions = [
-    { icon: 'help-circle-outline', text: t('tests.instructionContainsQuestions', { count: test.total_questions }), color: colors.primary },
-    { icon: 'clock-outline', text: t('tests.instructionTimeLimit', { minutes: test.duration_minutes }), color: colors.accent },
-    { icon: 'pause-circle-outline', text: t('tests.instructionNoPause'), color: colors.warning },
-    { icon: 'check-circle-outline', text: t('tests.instructionSingleCorrect'), color: colors.success },
-    { icon: 'percent', text: t('tests.instructionPassPercent', { percent: test.pass_percentage }), color: colors.secondary },
-    { icon: 'chart-line', text: t('tests.instructionInstantResults'), color: colors.primary },
-    { icon: 'wifi', text: t('tests.instructionStableInternet'), color: colors.textSecondary },
+    {
+      icon: 'help-circle-outline' as const,
+      text: t('tests.instructionContainsQuestions', { count: test.total_questions }),
+      color: colors.primary,
+    },
+    {
+      icon: 'clock-outline' as const,
+      text: t('tests.instructionTimeLimit', { minutes: test.duration_minutes }),
+      color: colors.accent,
+    },
+    {
+      icon: 'pause-circle-outline' as const,
+      text: t('tests.instructionNoPause'),
+      color: colors.warning,
+    },
+    {
+      icon: 'check-circle-outline' as const,
+      text: t('tests.instructionSingleCorrect'),
+      color: colors.success,
+    },
+    {
+      icon: 'percent' as const,
+      text: t('tests.instructionPassPercent', { percent: test.pass_percentage }),
+      color: colors.secondary,
+    },
+    {
+      icon: 'chart-line' as const,
+      text: t('tests.instructionInstantResults'),
+      color: colors.primary,
+    },
+    {
+      icon: 'wifi' as const,
+      text: t('tests.instructionStableInternet'),
+      color: colors.textSecondary,
+    },
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t('tests.instructions')}</Text>
-          <View style={{ width: 44 }} />
-        </View>
 
-        {/* Warning Card */}
-        <Card style={styles.warningCard}>
-          <Card.Content style={styles.warningContent}>
-            <MaterialCommunityIcons name="alert-circle" size={32} color={colors.warning} />
-            <View style={styles.warningTextContainer}>
-              <Text style={styles.warningTitle}>{t('tests.readCarefully')}</Text>
-              <Text style={styles.warningSubtitle}>{t('tests.readCarefullySubtitle')}</Text>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Test Summary */}
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryItem}>
-            <MaterialCommunityIcons name="help-circle" size={24} color={colors.primary} />
-            <Text style={styles.summaryValue}>{test.total_questions}</Text>
-            <Text style={styles.summaryLabel}>{t('tests.questions')}</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <MaterialCommunityIcons name="clock" size={24} color={colors.accent} />
-            <Text style={styles.summaryValue}>{test.duration_minutes}m</Text>
-            <Text style={styles.summaryLabel}>{t('tests.duration')}</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <MaterialCommunityIcons name="target" size={24} color={colors.success} />
-            <Text style={styles.summaryValue}>{test.pass_percentage}%</Text>
-            <Text style={styles.summaryLabel}>{t('tests.passMark')}</Text>
-          </View>
-        </View>
-
-        {/* Instructions List */}
-        <Card style={styles.instructionsCard}>
-          <Card.Content>
-            {instructions.map((item, index) => (
-              <View key={index} style={styles.instructionRow}>
-                <View style={[styles.instructionIcon, { backgroundColor: item.color + '20' }]}>
-                  <MaterialCommunityIcons name={item.icon as any} size={20} color={item.color} />
-                </View>
-                <Text style={styles.instructionText}>{item.text}</Text>
-              </View>
-            ))}
-          </Card.Content>
-        </Card>
-
-        {/* Agreement Checkbox */}
-        <TouchableOpacity style={styles.agreementRow} onPress={() => setAgreed(!agreed)} activeOpacity={0.7}>
-          <Checkbox status={agreed ? 'checked' : 'unchecked'} onPress={() => setAgreed(!agreed)} color={colors.primary} />
-          <Text style={styles.agreementText}>{t('tests.instructionsAgreement')}</Text>
+      {/* ── Top bar ── */}
+      <View style={[styles.topBar, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[styles.backBtn, { backgroundColor: colors.surfaceVariant }]}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
+        <Text style={[styles.topBarTitle, { color: colors.textPrimary }]}>
+          {t('tests.instructions')}
+        </Text>
+        <View style={{ width: 36 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
+        {/* ── Warning Banner ── */}
+        <View style={[styles.warningBanner, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '40' }]}>
+          <MaterialCommunityIcons name="alert-circle" size={22} color={colors.warning} />
+          <View style={styles.warningText}>
+            <Text style={[styles.warningTitle, { color: colors.textPrimary }]}>
+              {t('tests.readCarefully')}
+            </Text>
+            <Text style={[styles.warningSubtitle, { color: colors.warning }]}>
+              {t('tests.readCarefullySubtitle')}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Summary pills ── */}
+        <View style={styles.summaryRow}>
+          {[
+            { icon: 'help-circle', value: test.total_questions, label: t('tests.questions'), color: colors.primary },
+            { icon: 'clock', value: `${test.duration_minutes}m`, label: t('tests.duration'), color: colors.accent },
+            { icon: 'target', value: `${test.pass_percentage}%`, label: t('tests.passMark'), color: colors.success },
+          ].map((item, i) => (
+            <View key={i} style={[styles.summaryPill, { backgroundColor: colors.surface }]}>
+              <View style={[styles.summaryIconWrap, { backgroundColor: item.color + '15' }]}>
+                <MaterialCommunityIcons name={item.icon as any} size={18} color={item.color} />
+              </View>
+              <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>{item.value}</Text>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* ── Instructions list ── */}
+        <View style={[styles.instructionsCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.instructionsTitle, { color: colors.textPrimary }]}>
+            {t('tests.beforeYouStart', { defaultValue: 'Before you start' })}
+          </Text>
+          {instructions.map((item, index) => (
+            <View
+              key={index}
+              style={[
+                styles.instructionRow,
+                index < instructions.length - 1 && {
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: colors.border,
+                },
+              ]}
+            >
+              <View style={[styles.instructionIconWrap, { backgroundColor: item.color + '15' }]}>
+                <MaterialCommunityIcons name={item.icon} size={18} color={item.color} />
+              </View>
+              <Text style={[styles.instructionText, { color: colors.textPrimary }]}>
+                {item.text}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* ── Agreement ── */}
+        <TouchableOpacity
+          style={[
+            styles.agreementRow,
+            {
+              backgroundColor: agreed ? colors.primary + '10' : colors.surface,
+              borderColor: agreed ? colors.primary : colors.border,
+            },
+          ]}
+          onPress={() => setAgreed(!agreed)}
+          activeOpacity={0.8}
+        >
+          <View style={[
+            styles.checkbox,
+            {
+              backgroundColor: agreed ? colors.primary : 'transparent',
+              borderColor: agreed ? colors.primary : colors.border,
+            },
+          ]}>
+            {agreed && (
+              <MaterialCommunityIcons name="check" size={14} color="#fff" />
+            )}
+          </View>
+          <Text style={[styles.agreementText, { color: colors.textPrimary }]}>
+            {t('tests.instructionsAgreement')}
+          </Text>
+        </TouchableOpacity>
+
       </ScrollView>
 
-      {/* Bottom Action */}
-      <View style={styles.bottomAction}>
-        <Button mode="contained" icon="play" style={styles.startButton} contentStyle={styles.startButtonContent} labelStyle={styles.startButtonLabel} disabled={!agreed} onPress={() => router.navigate(`/tests/${testId}/attempt`)}>
-          {t('tests.beginTest')}
-        </Button>
+      {/* ── Bottom CTA ── */}
+      <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+        <TouchableOpacity
+          style={[
+            styles.startBtn,
+            { backgroundColor: agreed ? colors.primary : colors.surfaceVariant },
+          ]}
+          disabled={!agreed}
+          onPress={() => router.navigate(`/tests/${testId}/attempt`)}
+          activeOpacity={0.85}
+        >
+          <MaterialCommunityIcons
+            name="play-circle"
+            size={22}
+            color={agreed ? '#fff' : colors.textTertiary}
+          />
+          <Text style={[styles.startBtnText, { color: agreed ? '#fff' : colors.textTertiary }]}>
+            {t('tests.beginTest')}
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 };
 
-const createStyles = (colors: ColorScheme) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, padding: Spacing.xl },
-  errorText: { fontSize: 16, color: colors.textSecondary, marginVertical: Spacing.lg, textAlign: 'center' },
-  scrollContent: { padding: Spacing.base, paddingBottom: 100 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
-  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.cardBackground, alignItems: 'center', justifyContent: 'center', elevation: 2 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
-  warningCard: { backgroundColor: colors.warningLight, borderRadius: BorderRadius.xl, marginBottom: Spacing.lg },
-  warningContent: { flexDirection: 'row', alignItems: 'center' },
-  warningTextContainer: { marginLeft: Spacing.md },
-  warningTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
-  warningSubtitle: { fontSize: 14, color: colors.warning },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.lg },
-  summaryItem: { flex: 1, backgroundColor: colors.cardBackground, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: 'center', marginHorizontal: 4, elevation: 2 },
-  summaryValue: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginTop: Spacing.xs },
-  summaryLabel: { fontSize: 11, color: colors.textSecondary },
-  instructionsCard: { backgroundColor: colors.cardBackground, borderRadius: BorderRadius.xl, marginBottom: Spacing.lg },
-  instructionRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md },
-  instructionIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md },
-  instructionText: { fontSize: 14, color: colors.textPrimary, flex: 1, lineHeight: 20 },
-  agreementRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.cardBackground, borderRadius: BorderRadius.lg, padding: Spacing.md },
-  agreementText: { fontSize: 14, color: colors.textPrimary, flex: 1, marginLeft: Spacing.sm },
-  bottomAction: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.cardBackground, padding: Spacing.base, borderTopWidth: 1, borderTopColor: colors.border },
-  startButton: { borderRadius: BorderRadius.lg },
-  startButtonContent: { paddingVertical: Spacing.sm },
-  startButtonLabel: { fontSize: 16, fontWeight: '700' },
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  errorText: { fontSize: 16, marginVertical: 16, textAlign: 'center' },
+  scrollContent: { padding: 16, paddingBottom: 100 },
+
+  // Top bar
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topBarTitle: { fontSize: 17, fontWeight: '700' },
+
+  // Warning
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  warningText: { flex: 1 },
+  warningTitle: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
+  warningSubtitle: { fontSize: 12, fontWeight: '500' },
+
+  // Summary pills
+  summaryRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  summaryPill: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingVertical: 14,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+  },
+  summaryIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  summaryValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  summaryLabel: { fontSize: 10, marginTop: 2, fontWeight: '500' },
+
+  // Instructions card
+  instructionsCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+  },
+  instructionsTitle: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
+  instructionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 11,
+  },
+  instructionIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  instructionText: { fontSize: 13, flex: 1, lineHeight: 19 },
+
+  // Agreement
+  agreementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1.5,
+    marginBottom: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  agreementText: { fontSize: 13, flex: 1, lineHeight: 19 },
+
+  // Bottom bar
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+  startBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 15,
+    borderRadius: 14,
+  },
+  startBtnText: { fontSize: 16, fontWeight: '800' },
 });
 
 export default TestInstructionsScreen;

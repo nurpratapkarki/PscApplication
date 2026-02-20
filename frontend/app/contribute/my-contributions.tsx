@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Card, Text, Chip, ActivityIndicator, SegmentedButtons } from 'react-native-paper';
+import { Card, Text, Chip, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';

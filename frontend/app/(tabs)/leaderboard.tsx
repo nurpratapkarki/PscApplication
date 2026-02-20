@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/useApi';
 import { useColors } from '../../hooks/useColors';
 import { Spacing, BorderRadius } from '../../constants/typography';
-
+import { BannerAdSafe } from '../../components/ads/BannerAdSafe';
 const { width } = Dimensions.get('window');
 
 type RankingType = 'answers' | 'contributions';
@@ -515,8 +515,8 @@ export default function LeaderboardScreen() {
                 entry.rank === podium[0]?.rank
                   ? 1
                   : entry.rank === podium[1]?.rank
-                  ? 2
-                  : 3;
+                    ? 2
+                    : 3;
               return (
                 <PodiumCard
                   t={t}
@@ -602,24 +602,28 @@ export default function LeaderboardScreen() {
           )}
 
           {/* Rank 4+ list */}
+          {/* Rank 4+ list */}
           <View
             style={[
               bodyStyles.listCard,
               { backgroundColor: colors.cardBackground },
             ]}
           >
-            {rest.map((entry) => (
-              <RankRow
-                t={t}
-                key={entry.rank}
-                entry={entry}
-                rankingType={rankingType}
-                isMe={entry.rank === myRank}
-                colors={colors}
-              />
+            {rest.map((entry, index) => (
+              <React.Fragment key={entry.rank}>
+                <RankRow
+                  t={t}
+                  entry={entry}
+                  rankingType={rankingType}
+                  isMe={entry.rank === myRank}
+                  colors={colors}
+                />
+                {(index + 1) % 8 === 0 && (
+                  <BannerAdSafe style={{ marginVertical: 8 }} />
+                )}
+              </React.Fragment>
             ))}
 
-            {/* When total users ≤ 3, all are in the podium — show a small note */}
             {rest.length === 0 && topUsers.length > 0 && (
               <View style={bodyStyles.topOnlyNote}>
                 <MaterialCommunityIcons
@@ -627,9 +631,7 @@ export default function LeaderboardScreen() {
                   size={16}
                   color={colors.textTertiary}
                 />
-                <Text
-                  style={[bodyStyles.topOnlyText, { color: colors.textTertiary }]}
-                >
+                <Text style={[bodyStyles.topOnlyText, { color: colors.textTertiary }]}>
                   {t('leaderboard.onlyRanked', { count: topUsers.length })}
                 </Text>
               </View>

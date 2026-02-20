@@ -7,6 +7,9 @@ import { useTranslation } from 'react-i18next';
 export default function TabsLayout() {
   const colors = useColors();
   const { t } = useTranslation();
+   const insets = useSafeAreaInsets();
+
+  const tabBarHeight = 60 + insets.bottom;
 
   return (
         <Tabs

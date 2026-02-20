@@ -1,69 +1,55 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, BackHandler, Alert, ScrollView, TouchableOpacity, Image } from 'react-native';
+import {
+  View, StyleSheet, ActivityIndicator, BackHandler,
+  Alert, ScrollView, TouchableOpacity, Image,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Button, Card, Text, Title, RadioButton, ProgressBar } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../../hooks/useApi';
 import { MockTest, UserAttempt, UserAnswer, UserAnswerCreatePayload } from '../../../types/test.types';
 import { useColors } from '../../../hooks/useColors';
 import { useLocalizedField } from '../../../hooks/useLocalizedField';
-import { ColorScheme } from '../../../constants/colors';
-import { Spacing, BorderRadius } from '../../../constants/typography';
 import { attemptStorage, addPendingOperation } from '../../../services/storage';
 import { isOnline } from '../../../hooks/useNetwork';
 import { useAdInterstitial } from '../../../hooks/useInterstitialAd';
 
-// ─── MMKV instance (from central storage module) ─────────────────────────────
 const storage = attemptStorage;
+const ATTEMPT_KEY = (id: number) => `attempt_${id}_answers`;
+const TIME_KEY = (id: number) => `attempt_${id}_timeLeft`;
 
-// ─── Storage helpers ──────────────────────────────────────────────────────────
-const ATTEMPT_KEY = (attemptId: number) => `attempt_${attemptId}_answers`;
-const TIME_KEY = (attemptId: number) => `attempt_${attemptId}_timeLeft`;
-
-function saveAnswers(attemptId: number, answers: Record<number, number | null>) {
-  storage.set(ATTEMPT_KEY(attemptId), JSON.stringify(answers));
+function saveAnswers(id: number, answers: Record<number, number | null>) {
+  storage.set(ATTEMPT_KEY(id), JSON.stringify(answers));
 }
-
-function loadAnswers(attemptId: number): Record<number, number | null> {
-  const raw = storage.getString(ATTEMPT_KEY(attemptId));
+function loadAnswers(id: number): Record<number, number | null> {
+  const raw = storage.getString(ATTEMPT_KEY(id));
   if (!raw) return {};
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(raw); } catch { return {}; }
+}
+function saveTimeLeft(id: number, seconds: number) {
+  storage.set(TIME_KEY(id), seconds);
+}
+function loadTimeLeft(id: number): number | null {
+  return storage.getNumber(TIME_KEY(id)) ?? null;
+}
+function clearAttemptCache(id: number) {
+  storage.remove(ATTEMPT_KEY(id));
+  storage.remove(TIME_KEY(id));
 }
 
-function saveTimeLeft(attemptId: number, seconds: number) {
-  storage.set(TIME_KEY(attemptId), seconds);
-}
-
-function loadTimeLeft(attemptId: number): number | null {
-  const val = storage.getNumber(TIME_KEY(attemptId));
-  return val ?? null;
-}
-
-function clearAttemptCache(attemptId: number) {
-  storage.remove(ATTEMPT_KEY(attemptId));
-  storage.remove(TIME_KEY(attemptId));
-}
-
-// ─── Utilities ────────────────────────────────────────────────────────────────
 const formatTime = (seconds: number) => {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
 const TestAttemptScreen = () => {
   const router = useRouter();
   const { t } = useTranslation();
   const colors = useColors();
   const lf = useLocalizedField();
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ testId: string | string[] }>();
 
   const testId = useMemo(() => {
@@ -71,73 +57,52 @@ const TestAttemptScreen = () => {
     return params.testId;
   }, [params.testId]);
 
-  // ── API hooks ──────────────────────────────────────────────────────────────
   const { execute: startAttempt, data: userAttempt, status: attemptStatus } =
     useApi<UserAttempt>('/api/attempts/start/', true);
-
   const { execute: fetchTest, data: testData, status: testStatus, error: testError } =
     useApi<MockTest>(testId ? `/api/mock-tests/${testId}/` : '', true);
-
-  // Bulk answer submission — POST all answers at once on final submit
   const { execute: submitBulkAnswers, status: bulkAnswerStatus } =
     useApi<UserAnswer[]>('/api/answers/bulk/', true, { method: 'POST' });
-
   const { execute: submitTest, status: submitStatus } =
     useApi<UserAttempt>(
       userAttempt ? `/api/attempts/${userAttempt.id}/submit/` : '',
-      true,
-      { method: 'POST' }
+      true, { method: 'POST' }
     );
 
-  // ── Local state ────────────────────────────────────────────────────────────
-  // answers: { [questionId]: selectedAnswerId }
-  // This is the single source of truth — nothing goes to the backend until submit
   const [answers, setAnswers] = useState<Record<number, number | null>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(-1); // -1 = not yet initialized
+  const [timeLeft, setTimeLeft] = useState(-1);
+  const [showQuestionNav, setShowQuestionNav] = useState(false);
 
-  // ── Refs ───────────────────────────────────────────────────────────────────
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasAutoSubmitted = useRef(false);
   const timerInitialized = useRef(false);
   const hasInitialized = useRef(false);
   const questionStartTime = useRef(Date.now());
-  // Track time-per-question locally so we can send it on submit
   const questionTimings = useRef<Record<number, number>>({});
+  const { showAfterMockTest } = useAdInterstitial();
 
-  // ── Step 1: Start attempt ──────────────────────────────────────────────────
   useEffect(() => {
     if (!testId || hasInitialized.current) return;
     hasInitialized.current = true;
-
-    startAttempt({ mock_test_id: parseInt(testId, 10), mode: 'MOCK_TEST' }).catch(() => {
-      // attemptStatus = 'error', handled in render
-    });
+    startAttempt({ mock_test_id: parseInt(testId, 10), mode: 'MOCK_TEST' }).catch(() => {});
   }, [testId, startAttempt]);
 
-  // ── Step 2: Fetch test data after attempt is created ───────────────────────
   useEffect(() => {
     if (userAttempt) fetchTest();
   }, [userAttempt, fetchTest]);
 
-  // ── Step 3: Restore cached answers + timer once we have the attempt ID ─────
   useEffect(() => {
     if (!userAttempt) return;
-
-    const cachedAnswers = loadAnswers(userAttempt.id);
-    if (Object.keys(cachedAnswers).length > 0) {
-      setAnswers(cachedAnswers);
-    }
-
+    const cached = loadAnswers(userAttempt.id);
+    if (Object.keys(cached).length > 0) setAnswers(cached);
     const cachedTime = loadTimeLeft(userAttempt.id);
     if (cachedTime !== null && cachedTime > 0) {
-      // Restore timer from where they left off
       setTimeLeft(cachedTime);
       timerInitialized.current = true;
     }
   }, [userAttempt]);
 
-  // ── Step 4: Initialize timer from test duration (only if no cached time) ───
   useEffect(() => {
     if (testData?.duration_minutes && !timerInitialized.current) {
       timerInitialized.current = true;
@@ -145,48 +110,24 @@ const TestAttemptScreen = () => {
     }
   }, [testData]);
 
-  // ── Timer: runs once timeLeft is a positive number ─────────────────────────
   useEffect(() => {
     if (timeLeft <= 0 || !testData) return;
-    if (timerRef.current) return; // already running
-
+    if (timerRef.current) return;
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         const next = prev <= 1 ? 0 : prev - 1;
-
-        // Persist remaining time every 5 seconds to avoid hammering MMKV
-        if (userAttempt && next % 5 === 0) {
-          saveTimeLeft(userAttempt.id, next);
-        }
-
-        if (next === 0 && timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-
+        if (userAttempt && next % 5 === 0) saveTimeLeft(userAttempt.id, next);
+        if (next === 0 && timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
         return next;
       });
     }, 1000);
+    return () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
+  }, [testData, timeLeft > 0]); // eslint-disable-line
 
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [testData, timeLeft > 0]); // eslint-disable-line react-hooks/exhaustive-deps
-  const { showAfterMockTest } = useAdInterstitial();
-  // ── Final submission ───────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
     if (!userAttempt || submitStatus === 'loading' || bulkAnswerStatus === 'loading') return;
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
 
-    // Stop timer
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    // Build bulk payload from local answers state
     const answerPayloads: UserAnswerCreatePayload[] = Object.entries(answers).map(
       ([questionId, answerId]) => ({
         user_attempt: userAttempt.id,
@@ -197,8 +138,6 @@ const TestAttemptScreen = () => {
         is_marked_for_review: false,
       })
     );
-
-    // Also mark unanswered questions as skipped
     const answeredIds = new Set(Object.keys(answers).map(Number));
     testData?.test_questions?.forEach(({ question }) => {
       if (!answeredIds.has(question.id)) {
@@ -216,30 +155,17 @@ const TestAttemptScreen = () => {
     try {
       await submitBulkAnswers({ answers: answerPayloads });
       await submitTest();
-
-      // Clean up cache — test is done
       clearAttemptCache(userAttempt.id);
       const attemptId = userAttempt.id;
-      showAfterMockTest(() => {
-        router.replace(`/tests/${attemptId}/results`);
-      });
+      showAfterMockTest(() => { router.replace(`/tests/${attemptId}/results`); });
     } catch {
       if (!isOnline()) {
-        // Queue for later sync when back online
-        addPendingOperation({
-          endpoint: '/api/answers/bulk/',
-          method: 'POST',
-          body: { answers: answerPayloads },
-        });
-        addPendingOperation({
-          endpoint: `/api/attempts/${userAttempt.id}/submit/`,
-          method: 'POST',
-          body: {},
-        });
+        addPendingOperation({ endpoint: '/api/answers/bulk/', method: 'POST', body: { answers: answerPayloads } });
+        addPendingOperation({ endpoint: `/api/attempts/${userAttempt.id}/submit/`, method: 'POST', body: {} });
         clearAttemptCache(userAttempt.id);
         Alert.alert(
           t('tests.savedOffline', { defaultValue: 'Saved Offline' }),
-          t('tests.savedOfflineMsg', { defaultValue: 'Your answers have been saved. Results will sync when you\'re back online.' }),
+          t('tests.savedOfflineMsg', { defaultValue: 'Your answers have been saved and will sync when you\'re back online.' }),
           [{ text: t('common.ok'), onPress: () => router.replace('/(tabs)/tests') }],
         );
       } else {
@@ -248,66 +174,39 @@ const TestAttemptScreen = () => {
     }
   }, [userAttempt, answers, testData, submitBulkAnswers, submitTest, router, submitStatus, bulkAnswerStatus, t, showAfterMockTest]);
 
-  // ── Auto-submit when timer hits 0 ─────────────────────────────────────────
   useEffect(() => {
-    if (
-      timeLeft === 0 &&
-      timerInitialized.current &&
-      testData &&
-      !hasAutoSubmitted.current &&
-      submitStatus !== 'loading'
-    ) {
+    if (timeLeft === 0 && timerInitialized.current && testData && !hasAutoSubmitted.current && submitStatus !== 'loading') {
       hasAutoSubmitted.current = true;
-      Alert.alert(t('tests.timesUp'), t('tests.timesUpMsg'), [
-        { text: t('common.ok'), onPress: handleSubmit },
-      ]);
+      Alert.alert(t('tests.timesUp'), t('tests.timesUpMsg'), [{ text: t('common.ok'), onPress: handleSubmit }]);
     }
   }, [timeLeft, testData, handleSubmit, submitStatus, t]);
 
-  // ── Prevent back navigation during test ───────────────────────────────────
   useEffect(() => {
     const backAction = () => {
-      Alert.alert(t('tests.holdOn'), t('tests.cantGoBack'), [
-        { text: t('common.ok') },
-      ]);
+      Alert.alert(t('tests.holdOn'), t('tests.cantGoBack'), [{ text: t('common.ok') }]);
       return true;
     };
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-    return () => backHandler.remove();
+    const handler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => handler.remove();
   }, [t]);
 
-  // ── Answer selection — pure local state, no API call ──────────────────────
-  const handleAnswerSelect = useCallback(
-    (questionId: number, answerId: number) => {
-      // Accumulate time for this question
-      const elapsed = Math.round((Date.now() - questionStartTime.current) / 1000);
-      questionTimings.current[questionId] =
-        (questionTimings.current[questionId] ?? 0) + elapsed;
-      questionStartTime.current = Date.now(); // reset for re-selection tracking
+  const handleAnswerSelect = useCallback((questionId: number, answerId: number) => {
+    const elapsed = Math.round((Date.now() - questionStartTime.current) / 1000);
+    questionTimings.current[questionId] = (questionTimings.current[questionId] ?? 0) + elapsed;
+    questionStartTime.current = Date.now();
+    setAnswers(prev => {
+      const updated = { ...prev, [questionId]: answerId };
+      if (userAttempt) saveAnswers(userAttempt.id, updated);
+      return updated;
+    });
+  }, [userAttempt]);
 
-      setAnswers(prev => {
-        const updated = { ...prev, [questionId]: answerId };
-
-        // Persist to MMKV immediately so crash/backgrounding loses nothing
-        if (userAttempt) {
-          saveAnswers(userAttempt.id, updated);
-        }
-
-        return updated;
-      });
-    },
-    [userAttempt]
-  );
-
-  // ── Navigation between questions ──────────────────────────────────────────
   const handleNext = useCallback(() => {
     if (testData?.test_questions && currentQuestionIndex < testData.test_questions.length - 1) {
-      // Record time spent on current question before moving
-      const currentQuestion = testData.test_questions[currentQuestionIndex]?.question;
-      if (currentQuestion) {
+      const q = testData.test_questions[currentQuestionIndex]?.question;
+      if (q) {
         const elapsed = Math.round((Date.now() - questionStartTime.current) / 1000);
-        questionTimings.current[currentQuestion.id] =
-          (questionTimings.current[currentQuestion.id] ?? 0) + elapsed;
+        questionTimings.current[q.id] = (questionTimings.current[q.id] ?? 0) + elapsed;
       }
       setCurrentQuestionIndex(prev => prev + 1);
       questionStartTime.current = Date.now();
@@ -316,12 +215,10 @@ const TestAttemptScreen = () => {
 
   const handlePrevious = useCallback(() => {
     if (currentQuestionIndex > 0) {
-      // Record time spent before going back
-      const currentQuestion = testData?.test_questions?.[currentQuestionIndex]?.question;
-      if (currentQuestion) {
+      const q = testData?.test_questions?.[currentQuestionIndex]?.question;
+      if (q) {
         const elapsed = Math.round((Date.now() - questionStartTime.current) / 1000);
-        questionTimings.current[currentQuestion.id] =
-          (questionTimings.current[currentQuestion.id] ?? 0) + elapsed;
+        questionTimings.current[q.id] = (questionTimings.current[q.id] ?? 0) + elapsed;
       }
       setCurrentQuestionIndex(prev => prev - 1);
       questionStartTime.current = Date.now();
@@ -329,309 +226,504 @@ const TestAttemptScreen = () => {
   }, [currentQuestionIndex, testData]);
 
   const showSubmitConfirm = useCallback(() => {
-    const totalQuestions = testData?.test_questions?.length || 0;
-    const answeredCount = Object.keys(answers).length;
-    const unanswered = totalQuestions - answeredCount;
-
+    const total = testData?.test_questions?.length || 0;
+    const answered = Object.keys(answers).length;
+    const unanswered = total - answered;
     Alert.alert(
       t('tests.finishTest'),
-      unanswered > 0
-        ? t('tests.unansweredWarning', { count: unanswered })
-        : t('tests.finishConfirm'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('common.submit'), onPress: handleSubmit },
-      ]
+      unanswered > 0 ? t('tests.unansweredWarning', { count: unanswered }) : t('tests.finishConfirm'),
+      [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.submit'), onPress: handleSubmit }]
     );
   }, [testData, answers, handleSubmit, t]);
 
-  // ── Cleanup on unmount ────────────────────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
+  useEffect(() => { return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, []);
 
-  // ── Derived values ────────────────────────────────────────────────────────
   const isSubmitting = submitStatus === 'loading' || bulkAnswerStatus === 'loading';
+  const totalQuestions = testData?.test_questions?.length || 0;
+  const answeredCount = Object.keys(answers).length;
 
-  // ── Render: loading ───────────────────────────────────────────────────────
   if (attemptStatus === 'loading' || testStatus === 'loading' || (testId && !testData)) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>{t('tests.preparingTest')}</Text>
+      <SafeAreaView style={[styles.centered, { backgroundColor: colors.background }]}>
+        <View style={[styles.loadingCard, { backgroundColor: colors.surface }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            {t('tests.preparingTest')}
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
 
-  // ── Render: error ─────────────────────────────────────────────────────────
   if (testStatus === 'error' || !testData) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Title>{t('common.error')}</Title>
-        <Text style={styles.errorText}>{testError || t('tests.failedToLoadTest')}</Text>
-        <Button onPress={() => router.back()}>{t('common.back')}</Button>
+      <SafeAreaView style={[styles.centered, { backgroundColor: colors.background }]}>
+        <MaterialCommunityIcons name="alert-circle" size={48} color={colors.error} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          {testError || t('tests.failedToLoadTest')}
+        </Text>
       </SafeAreaView>
     );
   }
 
   const currentQuestionData = testData.test_questions?.[currentQuestionIndex]?.question;
-  if (!currentQuestionData) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Text>{t('tests.noQuestions')}</Text>
-      </SafeAreaView>
-    );
-  }
+  if (!currentQuestionData) return null;
 
-  const questionProgress = testData.test_questions
-    ? (currentQuestionIndex + 1) / testData.test_questions.length
-    : 0;
+  const progress = (currentQuestionIndex + 1) / totalQuestions;
+  const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
+  const isTimeLow = timeLeft >= 0 && timeLeft <= 60;
+  const selectedAnswer = answers[currentQuestionData.id];
 
-  // ── Render: main ──────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: t('tests.takingTest', {
-            title: lf(testData.title_en, testData.title_np),
-          }),
-        }}
-      />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Header: question counter + timer + finish button */}
-      <View style={styles.header}>
-        <Text style={styles.questionCounter}>
-          {t('tests.questionCounter', {
-            current: currentQuestionIndex + 1,
-            total: testData.test_questions?.length || 0,
-          })}
-        </Text>
-        <Title
+      {/* ── Top bar ── */}
+      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        {/* Progress info */}
+        <View style={styles.topLeft}>
+          <Text style={[styles.questionCounter, { color: colors.textSecondary }]}>
+            {currentQuestionIndex + 1} / {totalQuestions}
+          </Text>
+          <Text style={[styles.answeredLabel, { color: colors.textTertiary }]}>
+            {answeredCount} answered
+          </Text>
+        </View>
+
+        {/* Timer */}
+        <TouchableOpacity
           style={[
-            styles.timerText,
-            timeLeft >= 0 && timeLeft <= 60 && styles.timerWarning,
+            styles.timerPill,
+            { backgroundColor: isTimeLow ? colors.error + '15' : colors.primary + '10' },
           ]}
+          onPress={() => {}} // tapping timer does nothing but feels tactile
+          activeOpacity={0.9}
         >
-          {formatTime(Math.max(0, timeLeft))}
-        </Title>
-        <Button
+          <MaterialCommunityIcons
+            name="clock-outline"
+            size={14}
+            color={isTimeLow ? colors.error : colors.primary}
+          />
+          <Text style={[
+            styles.timerText,
+            { color: isTimeLow ? colors.error : colors.primary },
+          ]}>
+            {formatTime(Math.max(0, timeLeft))}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Finish */}
+        <TouchableOpacity
+          style={[styles.finishBtn, { backgroundColor: colors.error + '15' }]}
           onPress={showSubmitConfirm}
           disabled={isSubmitting}
-          loading={isSubmitting}
+          activeOpacity={0.8}
         >
-          {t('tests.finish')}
-        </Button>
+          <Text style={[styles.finishBtnText, { color: colors.error }]}>
+            {t('tests.finish')}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      <ProgressBar
-        progress={questionProgress}
-        style={styles.progressBar}
-        color={colors.primary}
-      />
+      {/* ── Progress bar ── */}
+      <View style={[styles.progressTrack, { backgroundColor: colors.surfaceVariant }]}>
+        <View
+          style={[
+            styles.progressFill,
+            { width: `${progress * 100}%`, backgroundColor: colors.primary },
+          ]}
+        />
+      </View>
 
-      {/* Question + options */}
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Card style={styles.questionCard}>
-          <Card.Content>
-            <Text style={styles.questionText}>
-              {lf(currentQuestionData.question_text_en, currentQuestionData.question_text_np)}
+      {/* ── Question ── */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Question card */}
+        <View style={[styles.questionCard, { backgroundColor: colors.surface }]}>
+          {/* Question number badge */}
+          <View style={[styles.questionBadge, { backgroundColor: colors.primary + '15' }]}>
+            <Text style={[styles.questionBadgeText, { color: colors.primary }]}>
+              Q{currentQuestionIndex + 1}
             </Text>
+          </View>
 
-            {currentQuestionData.question_text_np &&
-              currentQuestionData.question_text_np !== currentQuestionData.question_text_en && (
-                <Text style={styles.questionTextNp}>
-                  {currentQuestionData.question_text_np}
-                </Text>
-              )}
+          <Text style={[styles.questionText, { color: colors.textPrimary }]}>
+            {lf(currentQuestionData.question_text_en, currentQuestionData.question_text_np)}
+          </Text>
 
-            {!!currentQuestionData.image && (
-              <Image
-                source={{ uri: currentQuestionData.image }}
-                style={styles.questionImage}
-                resizeMode="contain"
-              />
+          {currentQuestionData.question_text_np &&
+            currentQuestionData.question_text_np !== currentQuestionData.question_text_en && (
+              <Text style={[styles.questionTextNp, { color: colors.primary }]}>
+                {currentQuestionData.question_text_np}
+              </Text>
             )}
 
-            <RadioButton.Group
-              onValueChange={newValue =>
-                handleAnswerSelect(currentQuestionData.id, parseInt(newValue, 10))
-              }
-              value={answers[currentQuestionData.id]?.toString() || ''}
-            >
-              {currentQuestionData.answers?.map(option => (
-                <RadioButton.Item
-                  key={option.id}
-                  label={lf(option.answer_text_en, option.answer_text_np)}
-                  value={option.id.toString()}
-                  style={[
-                    styles.option,
-                    answers[currentQuestionData.id] === option.id && styles.selectedOption,
-                  ]}
-                />
-              ))}
-            </RadioButton.Group>
-          </Card.Content>
-        </Card>
+          {!!currentQuestionData.image && (
+            <Image
+              source={{ uri: currentQuestionData.image }}
+              style={styles.questionImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
 
+        {/* Answer options */}
+        <View style={styles.optionsContainer}>
+          {currentQuestionData.answers?.map((option, optIndex) => {
+            const isSelected = selectedAnswer === option.id;
+            const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D
+            return (
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  styles.option,
+                  {
+                    backgroundColor: isSelected ? colors.primary + '12' : colors.surface,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => handleAnswerSelect(currentQuestionData.id, option.id)}
+                activeOpacity={0.8}
+              >
+                <View style={[
+                  styles.optionLabel,
+                  {
+                    backgroundColor: isSelected ? colors.primary : colors.surfaceVariant,
+                  },
+                ]}>
+                  <Text style={[
+                    styles.optionLabelText,
+                    { color: isSelected ? '#fff' : colors.textSecondary },
+                  ]}>
+                    {optionLabel}
+                  </Text>
+                </View>
+                <Text style={[
+                  styles.optionText,
+                  { color: colors.textPrimary },
+                  isSelected && { fontWeight: '600' },
+                ]}>
+                  {lf(option.answer_text_en, option.answer_text_np)}
+                </Text>
+                {isSelected && (
+                  <MaterialCommunityIcons name="check-circle" size={18} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Report */}
         <TouchableOpacity
-          style={styles.reportButton}
+          style={styles.reportBtn}
           onPress={() => router.push(`/report/${currentQuestionData.id}` as any)}
         >
-          <MaterialCommunityIcons name="flag-outline" size={16} color={colors.error} />
-          <Text style={styles.reportButtonText}>{t('report.reportQuestion', { defaultValue: 'Report Question' })}</Text>
+          <MaterialCommunityIcons name="flag-outline" size={14} color={colors.textTertiary} />
+          <Text style={[styles.reportBtnText, { color: colors.textTertiary }]}>
+            {t('report.reportQuestion', { defaultValue: 'Report this question' })}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Footer: prev / next / submit */}
-      <View style={styles.footer}>
-        <Button
-          mode="outlined"
+      {/* ── Footer ── */}
+      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+        <TouchableOpacity
+          style={[
+            styles.navBtn,
+            { backgroundColor: colors.surfaceVariant },
+            currentQuestionIndex === 0 && { opacity: 0.4 },
+          ]}
           onPress={handlePrevious}
           disabled={currentQuestionIndex === 0}
-          icon="chevron-left"
         >
-          {t('tests.previous')}
-        </Button>
+          <MaterialCommunityIcons name="chevron-left" size={20} color={colors.textPrimary} />
+          <Text style={[styles.navBtnText, { color: colors.textPrimary }]}>
+            {t('tests.previous')}
+          </Text>
+        </TouchableOpacity>
 
-        {currentQuestionIndex === (testData.test_questions?.length || 0) - 1 ? (
-          <Button
-            mode="contained"
+        {/* Question grid dots */}
+        <TouchableOpacity
+          style={[styles.dotNavBtn, { backgroundColor: colors.surfaceVariant }]}
+          onPress={() => setShowQuestionNav(!showQuestionNav)}
+        >
+          <MaterialCommunityIcons name="view-grid-outline" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
+
+        {isLastQuestion ? (
+          <TouchableOpacity
+            style={[styles.submitBtn, { backgroundColor: colors.success }]}
             onPress={showSubmitConfirm}
             disabled={isSubmitting}
-            loading={isSubmitting}
-            icon="check-all"
-            buttonColor={colors.success}
           >
-            {t('tests.finishAndSubmit')}
-          </Button>
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <MaterialCommunityIcons name="check-all" size={18} color="#fff" />
+            )}
+            <Text style={styles.submitBtnText}>
+              {t('tests.finishAndSubmit')}
+            </Text>
+          </TouchableOpacity>
         ) : (
-          <Button
-            mode="contained"
+          <TouchableOpacity
+            style={[styles.navBtn, { backgroundColor: colors.primary }]}
             onPress={handleNext}
-            icon="chevron-right"
-            contentStyle={styles.nextButtonContent}
           >
-            {t('tests.next')}
-          </Button>
+            <Text style={[styles.navBtnText, { color: '#fff' }]}>
+              {t('tests.next')}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#fff" />
+          </TouchableOpacity>
         )}
       </View>
+
+      {/* ── Question navigator overlay ── */}
+      {showQuestionNav && (
+        <TouchableOpacity
+          style={styles.navOverlay}
+          activeOpacity={1}
+          onPress={() => setShowQuestionNav(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={[styles.navSheet, { backgroundColor: colors.surface }]}
+            onPress={() => {}}
+          >
+            <Text style={[styles.navSheetTitle, { color: colors.textPrimary }]}>
+              Questions
+            </Text>
+            <View style={styles.navGrid}>
+              {testData.test_questions?.map((_, index) => {
+                const qId = testData.test_questions![index].question.id;
+                const isAnswered = answers[qId] !== undefined;
+                const isCurrent = index === currentQuestionIndex;
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.navDot,
+                      {
+                        backgroundColor: isCurrent
+                          ? colors.primary
+                          : isAnswered
+                          ? colors.success + '20'
+                          : colors.surfaceVariant,
+                        borderColor: isCurrent
+                          ? colors.primary
+                          : isAnswered
+                          ? colors.success
+                          : colors.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      setCurrentQuestionIndex(index);
+                      setShowQuestionNav(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.navDotText,
+                      { color: isCurrent ? '#fff' : isAnswered ? colors.success : colors.textSecondary },
+                    ]}>
+                      {index + 1}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={styles.navLegend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>Current</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: colors.success + '20', borderWidth: 1, borderColor: colors.success }]} />
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>Answered</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: colors.surfaceVariant }]} />
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>Unanswered</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 };
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const createStyles = (colors: ColorScheme) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: Spacing.base,
-      paddingVertical: Spacing.sm,
-      backgroundColor: colors.cardBackground,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    questionCounter: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.textSecondary,
-    },
-    timerText: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    timerWarning: {
-      color: colors.error,
-    },
-    progressBar: {
-      marginHorizontal: Spacing.base,
-      height: 4,
-      borderRadius: 2,
-    },
-    scrollContainer: {
-      padding: Spacing.base,
-      paddingBottom: Spacing.lg,
-    },
-    questionCard: {
-      backgroundColor: colors.cardBackground,
-      borderRadius: BorderRadius.lg,
-      elevation: 2,
-    },
-    questionText: {
-      fontSize: 18,
-      lineHeight: 26,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      marginBottom: Spacing.base,
-    },
-    questionTextNp: {
-      fontSize: 16,
-      lineHeight: 24,
-      color: colors.primary,
-      marginBottom: Spacing.base,
-    },
-    questionImage: {
-      width: '100%' as unknown as number,
-      height: 200,
-      marginTop: Spacing.sm,
-      marginBottom: Spacing.base,
-      borderRadius: BorderRadius.md,
-    },
-    option: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: BorderRadius.md,
-      marginBottom: Spacing.sm,
-      backgroundColor: colors.cardBackground,
-    },
-    selectedOption: {
-      borderColor: colors.primary,
-      backgroundColor: colors.infoLight,
-    },
-    footer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      padding: Spacing.base,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      backgroundColor: colors.cardBackground,
-    },
-    nextButtonContent: {
-      flexDirection: 'row-reverse',
-    },
-    loadingText: {
-      marginTop: Spacing.base,
-      fontSize: 16,
-      color: colors.textSecondary,
-      textAlign: 'center',
-    },
-    errorText: {
-      textAlign: 'center',
-      margin: Spacing.xl,
-      fontSize: 18,
-      color: colors.error,
-    },
-    reportButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      marginTop: Spacing.md,
-      paddingVertical: Spacing.sm,
-    },
-    reportButtonText: {
-      fontSize: 13,
-      color: colors.error,
-      fontWeight: '500',
-    },
-  });
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadingCard: { padding: 32, borderRadius: 20, alignItems: 'center', gap: 12 },
+  loadingText: { fontSize: 14, textAlign: 'center' },
+
+  // Top bar
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  topLeft: {},
+  questionCounter: { fontSize: 15, fontWeight: '700' },
+  answeredLabel: { fontSize: 11, marginTop: 1 },
+  timerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  timerText: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
+  finishBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  finishBtnText: { fontSize: 13, fontWeight: '700' },
+
+  // Progress
+  progressTrack: { height: 3 },
+  progressFill: { height: '100%' },
+
+  // Scroll
+  scrollContent: { padding: 16, paddingBottom: 24 },
+
+  // Question card
+  questionCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+  questionBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  questionBadgeText: { fontSize: 12, fontWeight: '800' },
+  questionText: { fontSize: 17, lineHeight: 27, fontWeight: '600' },
+  questionTextNp: { fontSize: 15, lineHeight: 24, marginTop: 8 },
+  questionImage: {
+    width: '100%' as any,
+    height: 200,
+    marginTop: 12,
+    borderRadius: 10,
+  },
+
+  // Options
+  optionsContainer: { gap: 10, marginBottom: 16 },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1.5,
+    gap: 12,
+  },
+  optionLabel: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionLabelText: { fontSize: 13, fontWeight: '800' },
+  optionText: { flex: 1, fontSize: 15, lineHeight: 22 },
+
+  // Report
+  reportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 8,
+  },
+  reportBtnText: { fontSize: 12 },
+
+  // Footer
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  navBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 13,
+    borderRadius: 13,
+  },
+  navBtnText: { fontSize: 14, fontWeight: '700' },
+  dotNavBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 13,
+    borderRadius: 13,
+  },
+  submitBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+
+  // Nav overlay
+  navOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  navSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 36,
+  },
+  navSheetTitle: { fontSize: 16, fontWeight: '700', marginBottom: 16 },
+  navGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  navDot: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+  },
+  navDotText: { fontSize: 13, fontWeight: '700' },
+  navLegend: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendDot: { width: 12, height: 12, borderRadius: 3 },
+  legendText: { fontSize: 12 },
+});
 
 export default TestAttemptScreen;

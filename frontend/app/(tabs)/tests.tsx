@@ -1,14 +1,19 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { usePaginatedApi } from '../../hooks/usePaginatedApi';
+import { useApi } from '../../hooks/useApi';
 import { MockTest } from '../../types/test.types';
+import { UserProfile } from '../../types/user.types';
 import { useColors } from '../../hooks/useColors';
 import { useLocalizedField } from '../../hooks/useLocalizedField';
+import { BannerAdSafe } from '../../components/ads/BannerAdSafe';
+
+type TestFilter = 'ALL' | 'MY_BRANCH' | 'OFFICIAL' | 'COMMUNITY' | 'CUSTOM';
 
 const getTestIcon = (type: string): { icon: string; color: (c: any) => string } => {
   switch (type) {
@@ -22,31 +27,44 @@ const TestCard = React.memo(function TestCard({
   test,
   onPress,
   colors,
-  lf
+  lf,
+  isPreferred,
 }: {
   test: MockTest;
   onPress: () => void;
   colors: ReturnType<typeof import('../../hooks/useColors').useColors>;
-  lf: ReturnType<typeof import('../../hooks/useLocalizedField').useLocalizedField>
+  lf: ReturnType<typeof import('../../hooks/useLocalizedField').useLocalizedField>;
+  isPreferred: boolean;
 }) {
   const { icon: iconName, color: getColor } = getTestIcon(test.test_type);
   const iconBgColor = getColor(colors);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      <View style={[styles.testCard, { backgroundColor: colors.surface }]}>
+      <View style={[
+        styles.testCard,
+        { backgroundColor: colors.surface },
+        isPreferred && { borderLeftWidth: 3, borderLeftColor: colors.primary },
+      ]}>
         <View style={[styles.testIconContainer, { backgroundColor: iconBgColor + '15' }]}>
           <MaterialCommunityIcons name={iconName as any} size={24} color={iconBgColor} />
         </View>
-        
+
         <View style={styles.testContent}>
-          <Text style={[styles.testTitle, { color: colors.textPrimary }]} numberOfLines={2}>
-            {lf(test.title_en, test.title_np)}
-          </Text>
+          <View style={styles.testTitleRow}>
+            <Text style={[styles.testTitle, { color: colors.textPrimary }]} numberOfLines={2}>
+              {lf(test.title_en, test.title_np)}
+            </Text>
+            {isPreferred && (
+              <View style={[styles.preferredBadge, { backgroundColor: colors.primary + '15' }]}>
+                <MaterialCommunityIcons name="star" size={10} color={colors.primary} />
+                <Text style={[styles.preferredText, { color: colors.primary }]}>Your Branch</Text>
+              </View>
+            )}
+          </View>
           <Text style={[styles.testBranch, { color: colors.textSecondary }]} numberOfLines={1}>
             {test.branch_name}
           </Text>
-          
           <View style={styles.testMetaRow}>
             <View style={styles.metaBadge}>
               <MaterialCommunityIcons name="help-circle-outline" size={14} color={colors.textSecondary} />
@@ -62,26 +80,161 @@ const TestCard = React.memo(function TestCard({
             </View>
           </View>
         </View>
-        
+
         <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textTertiary} />
       </View>
     </TouchableOpacity>
   );
 });
 
+// ── Tab Toggle (reusing leaderboard pattern) ──────────────────────────────────
+const FilterToggle = ({
+  value,
+  onChange,
+  colors,
+  counts,
+}: {
+  value: TestFilter;
+  onChange: (v: TestFilter) => void;
+  colors: ReturnType<typeof import('../../hooks/useColors').useColors>;
+  counts: Record<TestFilter, number>;
+}) => {
+  const tabs: { key: TestFilter; label: string; icon: string }[] = [
+    { key: 'ALL', label: 'All', icon: 'view-grid' },
+    { key: 'MY_BRANCH', label: 'My Branch', icon: 'star' },
+    { key: 'OFFICIAL', label: 'Official', icon: 'shield-check' },
+    { key: 'COMMUNITY', label: 'Community', icon: 'account-group' },
+    { key: 'CUSTOM', label: 'My Tests', icon: 'account-circle' },
+  ];
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.filterRow}
+    >
+      {tabs.map((tab) => {
+        const active = value === tab.key;
+        // Hide My Branch tab if no branch tests exist
+        if (tab.key === 'MY_BRANCH' && counts.MY_BRANCH === 0) return null;
+        // Hide My Tests tab if no custom tests
+        if (tab.key === 'CUSTOM' && counts.CUSTOM === 0) return null;
+        return (
+          <TouchableOpacity
+            key={tab.key}
+            onPress={() => onChange(tab.key)}
+            style={[
+              styles.filterChip,
+              {
+                backgroundColor: active ? colors.primary : colors.surface,
+                borderColor: active ? colors.primary : colors.border,
+              },
+            ]}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons
+              name={tab.icon as any}
+              size={14}
+              color={active ? colors.white : colors.textSecondary}
+            />
+            <Text style={[
+              styles.filterChipText,
+              { color: active ? colors.white : colors.textSecondary },
+            ]}>
+              {tab.label}
+            </Text>
+            {counts[tab.key] > 0 && (
+              <View style={[
+                styles.filterCount,
+                { backgroundColor: active ? 'rgba(255,255,255,0.25)' : colors.surfaceVariant },
+              ]}>
+                <Text style={[
+                  styles.filterCountText,
+                  { color: active ? colors.white : colors.textSecondary },
+                ]}>
+                  {counts[tab.key]}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+};
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function TestsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const colors = useColors();
   const lf = useLocalizedField();
-  const { data: tests, status } = usePaginatedApi<MockTest>('/api/mock-tests/');
 
-  const { officialTests, communityTests, myTests } = useMemo(() => {
-    const official = tests?.filter((t) => t.test_type === 'OFFICIAL') || [];
-    const community = tests?.filter((t) => t.test_type === 'COMMUNITY') || [];
-    const custom = tests?.filter((t) => t.test_type === 'CUSTOM') || [];
-    return { officialTests: official, communityTests: community, myTests: custom };
-  }, [tests]);
+  const { data: tests, status } = usePaginatedApi<MockTest>('/api/mock-tests/');
+  const { data: userProfile } = useApi<UserProfile>('/api/auth/user/');
+
+  const [filter, setFilter] = useState<TestFilter>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const userBranch = userProfile?.target_branch ?? userProfile?.branch ?? null;
+  const userSubBranch = userProfile?.target_sub_branch ?? null;
+
+  // ── Sorting: user's branch tests first ───────────────────────────────────
+  const sortedTests = useMemo(() => {
+    if (!tests) return [];
+    return [...tests].sort((a, b) => {
+      const aMatch = a.branch === userBranch ? 2 : 0 +
+        (a.sub_branch === userSubBranch && userSubBranch ? 1 : 0);
+      const bMatch = b.branch === userBranch ? 2 : 0 +
+        (b.sub_branch === userSubBranch && userSubBranch ? 1 : 0);
+      return bMatch - aMatch;
+    });
+  }, [tests, userBranch, userSubBranch]);
+
+  // ── Counts per filter tab ─────────────────────────────────────────────────
+  const counts = useMemo((): Record<TestFilter, number> => {
+    if (!sortedTests) return { ALL: 0, MY_BRANCH: 0, OFFICIAL: 0, COMMUNITY: 0, CUSTOM: 0 };
+    return {
+      ALL: sortedTests.length,
+      MY_BRANCH: sortedTests.filter(t => t.branch === userBranch).length,
+      OFFICIAL: sortedTests.filter(t => t.test_type === 'OFFICIAL').length,
+      COMMUNITY: sortedTests.filter(t => t.test_type === 'COMMUNITY').length,
+      CUSTOM: sortedTests.filter(t => t.test_type === 'CUSTOM').length,
+    };
+  }, [sortedTests, userBranch]);
+
+  // ── Filtered + searched list ──────────────────────────────────────────────
+  const filteredTests = useMemo(() => {
+    let result = sortedTests;
+
+    // Apply tab filter
+    switch (filter) {
+      case 'MY_BRANCH':
+        result = result.filter(t => t.branch === userBranch);
+        break;
+      case 'OFFICIAL':
+        result = result.filter(t => t.test_type === 'OFFICIAL');
+        break;
+      case 'COMMUNITY':
+        result = result.filter(t => t.test_type === 'COMMUNITY');
+        break;
+      case 'CUSTOM':
+        result = result.filter(t => t.test_type === 'CUSTOM');
+        break;
+    }
+
+    // Apply search
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(t =>
+        t.title_en.toLowerCase().includes(q) ||
+        t.title_np?.toLowerCase().includes(q) ||
+        t.branch_name?.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [sortedTests, filter, searchQuery, userBranch]);
 
   if (status === 'loading') {
     return (
@@ -93,271 +246,167 @@ export default function TestsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
+
+      {/* ── Header ── */}
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+              {t('tests.mockTests')}
+            </Text>
+            {userProfile?.branch_name && (
+              <Text style={[styles.headerBranch, { color: colors.textSecondary }]}>
+                {userProfile.branch_name}
+              </Text>
+            )}
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[styles.headerActionBtn, { backgroundColor: colors.surface }]}
+              onPress={() => router.push('/tests/history')}
+            >
+              <MaterialCommunityIcons name="history" size={20} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.headerActionBtn, { backgroundColor: colors.surface }]}
+              onPress={() => router.push('/tests/create')}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color={colors.accent} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Search bar */}
+        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.textPrimary }]}
+            placeholder={t('tests.searchTests', { defaultValue: 'Search tests...' })}
+            placeholderTextColor={colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <MaterialCommunityIcons name="close-circle" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Filter toggle */}
+        <FilterToggle
+          value={filter}
+          onChange={setFilter}
+          colors={colors}
+          counts={counts}
+        />
+      </View>
+
+      {/* ── Test List ── */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-            {t('tests.mockTests')}
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-            {t('analytics.subtitle')}
-          </Text>
-        </View>
-
-        {/* Quick Action Cards */}
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity 
-            style={[styles.quickActionCard, { backgroundColor: colors.surface }]} 
-            onPress={() => router.push('/tests/history')} 
-            activeOpacity={0.8}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.primary + '15' }]}>
-              <MaterialCommunityIcons name="history" size={24} color={colors.primary} />
+        {filteredTests.length === 0 ? (
+          <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
+            <View style={[styles.emptyIconWrapper, { backgroundColor: colors.surfaceVariant }]}>
+              <MaterialCommunityIcons name="clipboard-search-outline" size={36} color={colors.textTertiary} />
             </View>
-            <Text style={[styles.quickActionText, { color: colors.textPrimary }]}>
-              {t('tests.history')}
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+              {searchQuery ? 'No results found' : 'No tests available'}
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.quickActionCard, { backgroundColor: colors.surface }]} 
-            onPress={() => router.push('/tests/create')} 
-            activeOpacity={0.8}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.accent + '15' }]}>
-              <MaterialCommunityIcons name="plus-circle" size={24} color={colors.accent} />
-            </View>
-            <Text style={[styles.quickActionText, { color: colors.textPrimary }]}>
-              {t('tests.createTest')}
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              {searchQuery ? `No tests matching "${searchQuery}"` : 'Check back later'}
             </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Official Tests Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <View style={[styles.sectionIconWrapper, { backgroundColor: colors.primary + '15' }]}>
-                <MaterialCommunityIcons name="shield-check" size={18} color={colors.primary} />
-              </View>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                {t('tests.officialTests')}
-              </Text>
-            </View>
-            <View style={[styles.countBadge, { backgroundColor: colors.surfaceVariant }]}>
-              <Text style={[styles.countText, { color: colors.textSecondary }]}>
-                {officialTests.length}
-              </Text>
-            </View>
           </View>
-
-          {officialTests.length > 0 ? (
-            <View style={styles.testsContainer}>
-              {officialTests.map((test) => (
-                <TestCard 
-                  key={test.id} 
-                  test={test} 
-                  onPress={() => router.push(`/tests/${test.id}`)} 
-                  colors={colors} 
-                  lf={lf} 
-                />
-              ))}
-            </View>
-          ) : (
-            <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
-              <View style={[styles.emptyIconWrapper, { backgroundColor: colors.surfaceVariant }]}>
-                <MaterialCommunityIcons name="clipboard-text-off" size={32} color={colors.textTertiary} />
-              </View>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                {t('tests.noOfficialTests')}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* My Tests Section */}
-        {myTests.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <View style={[styles.sectionIconWrapper, { backgroundColor: colors.accent + '15' }]}>
-                  <MaterialCommunityIcons name="account-circle" size={18} color={colors.accent} />
-                </View>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                  {t('tests.myTests', { defaultValue: 'My Tests' })}
-                </Text>
-              </View>
-              <View style={[styles.countBadge, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[styles.countText, { color: colors.textSecondary }]}>
-                  {myTests.length}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.testsContainer}>
-              {myTests.map((test) => (
-                <TestCard
-                  key={test.id}
-                  test={test}
-                  onPress={() => router.push(`/tests/${test.id}`)}
-                  colors={colors}
-                  lf={lf}
-                />
-              ))}
-            </View>
+        ) : (
+          <View style={styles.testsContainer}>
+            {filteredTests.map((test, index) => {
+              const isPreferred = test.branch === userBranch;
+              return (
+                <React.Fragment key={test.id}>
+                  <TestCard
+                    test={test}
+                    onPress={() => router.push(`/tests/${test.id}`)}
+                    colors={colors}
+                    lf={lf}
+                    isPreferred={isPreferred}
+                  />
+                  {/* Banner ad after every 8th test card */}
+                  {(index + 1) % 8 === 0 && (
+                    <BannerAdSafe style={{ marginVertical: 8 }} />
+                  )}
+                </React.Fragment>
+              );
+            })}
           </View>
         )}
-
-        {/* Community Tests Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <View style={[styles.sectionIconWrapper, { backgroundColor: colors.secondary + '15' }]}>
-                <MaterialCommunityIcons name="account-group" size={18} color={colors.secondary} />
-              </View>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                {t('tests.communityTests')}
-              </Text>
-            </View>
-            <View style={[styles.countBadge, { backgroundColor: colors.surfaceVariant }]}>
-              <Text style={[styles.countText, { color: colors.textSecondary }]}>
-                {communityTests.length}
-              </Text>
-            </View>
-          </View>
-
-          {communityTests.length > 0 ? (
-            <View style={styles.testsContainer}>
-              {communityTests.map((test) => (
-                <TestCard
-                  key={test.id}
-                  test={test}
-                  onPress={() => router.push(`/tests/${test.id}`)}
-                  colors={colors}
-                  lf={lf}
-                />
-              ))}
-            </View>
-          ) : (
-            <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
-              <View style={[styles.emptyIconWrapper, { backgroundColor: colors.surfaceVariant }]}>
-                <MaterialCommunityIcons name="account-group-outline" size={32} color={colors.textTertiary} />
-              </View>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                {t('tests.noCommunityTests')}
-              </Text>
-            </View>
-          )}
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1 
-  },
-  loaderContainer: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  scrollContent: { 
-    padding: 16, 
-    paddingBottom: 32 
-  },
+  container: { flex: 1 },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scrollContent: { padding: 16, paddingBottom: 32 },
 
   // Header
-  header: { 
-    marginBottom: 20 
+  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  headerTitle: { 
-    fontSize: 24, 
-    fontWeight: '700', 
-    letterSpacing: -0.5 
-  },
-  headerSubtitle: { 
-    fontSize: 14, 
-    marginTop: 4 
-  },
-
-  // Quick Actions
-  quickActionsRow: { 
-    flexDirection: 'row', 
-    gap: 12, 
-    marginBottom: 24 
-  },
-  quickActionCard: {
-    flex: 1,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2
-  },
-  quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  headerTitle: { fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
+  headerBranch: { fontSize: 13, marginTop: 2 },
+  headerActions: { flexDirection: 'row', gap: 8 },
+  headerActionBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12
-  },
-  quickActionText: { 
-    fontSize: 14, 
-    fontWeight: '600', 
-    textAlign: 'center' 
+    elevation: 2,
   },
 
-  // Section
-  section: { 
-    marginBottom: 24 
-  },
-  sectionHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: 12 
-  },
-  sectionTitleRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 8 
-  },
-  sectionIconWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  // Search
+  searchBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center'
-  },
-  sectionTitle: { 
-    fontSize: 18, 
-    fontWeight: '700' 
-  },
-  countBadge: {
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12
+    paddingVertical: 10,
+    gap: 8,
+    marginBottom: 12,
+    borderWidth: 1,
   },
-  countText: { 
-    fontSize: 13, 
-    fontWeight: '600' 
-  },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
 
-  // Tests Container
-  testsContainer: { 
-    gap: 12 
+  // Filter chips
+  filterRow: { flexDirection: 'row', gap: 8, paddingBottom: 12 },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
   },
+  filterChipText: { fontSize: 13, fontWeight: '600' },
+  filterCount: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  filterCountText: { fontSize: 11, fontWeight: '700' },
 
-  // Test Card
+  // Tests
+  testsContainer: { gap: 12 },
   testCard: {
     borderRadius: 16,
     padding: 16,
@@ -367,7 +416,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
-    elevation: 2
+    elevation: 2,
   },
   testIconContainer: {
     width: 48,
@@ -375,51 +424,41 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12
+    marginRight: 12,
   },
-  testContent: { 
-    flex: 1 
+  testContent: { flex: 1 },
+  testTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 4 },
+  testTitle: { fontSize: 15, fontWeight: '600', flex: 1, lineHeight: 22 },
+  preferredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
-  testTitle: { 
-    fontSize: 16, 
-    fontWeight: '600', 
-    marginBottom: 4,
-    lineHeight: 22
-  },
-  testBranch: { 
-    fontSize: 13, 
-    marginBottom: 8 
-  },
-  testMetaRow: { 
-    flexDirection: 'row', 
-    gap: 12 
-  },
-  metaBadge: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 4 
-  },
-  metaText: { 
-    fontSize: 12 
-  },
+  preferredText: { fontSize: 9, fontWeight: '700' },
+  testBranch: { fontSize: 13, marginBottom: 8 },
+  testMetaRow: { flexDirection: 'row', gap: 12 },
+  metaBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: { fontSize: 12 },
 
-  // Empty State
+  // Empty
   emptyState: {
     borderRadius: 16,
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-    alignItems: 'center'
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginTop: 24,
   },
   emptyIconWrapper: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12
+    marginBottom: 16,
   },
-  emptyText: { 
-    fontSize: 14, 
-    textAlign: 'center' 
-  }
+  emptyTitle: { fontSize: 16, fontWeight: '700', marginBottom: 6 },
+  emptyText: { fontSize: 14, textAlign: 'center' },
 });
