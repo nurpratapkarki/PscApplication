@@ -1,48 +1,41 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, Button, TextInput, HelperText } from 'react-native-paper';
+import {
+  View, StyleSheet, ScrollView,
+  KeyboardAvoidingView, Platform, TouchableOpacity,
+} from 'react-native';
+import { Text, TextInput } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useColors } from '../../hooks/useColors';
-import { Colors } from '../../constants/colors';
-import { Spacing, BorderRadius } from '../../constants/typography';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function SignUpScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const colors = useColors();
-  const { register, isLoading: authLoading, error: authError } = useAuth();
+  const { register, isLoading } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const validateForm = (): string | null => {
+  const validate = (): string | null => {
     if (!email.trim()) return t('auth.emailRequired');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return t('auth.invalidEmail');
     if (!password) return t('auth.passwordRequired');
     if (password.length < 8) return t('auth.passwordMinLength');
     if (password !== confirmPassword) return t('auth.passwordsMismatch');
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return t('auth.invalidEmail');
     return null;
   };
 
   const handleSignUp = async () => {
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
+    const err = validate();
+    if (err) return setError(err);
     setError(null);
-    setIsLoading(true);
-
     try {
       await register({
         email: email.trim(),
@@ -50,49 +43,65 @@ export default function SignUpScreen() {
         password2: confirmPassword,
         full_name: fullName.trim() || undefined,
       });
-
-      // Registration successful + auto-logged in - go to profile setup or home
       router.replace('/(auth)/profile-setup');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : t('auth.registrationFailed');
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('auth.registrationFailed'));
     }
   };
 
+  // Password strength
+  const strength = password.length === 0 ? 0
+    : password.length < 6 ? 1
+    : password.length < 10 ? 2
+    : 3;
+  const strengthColor = ['transparent', colors.error, colors.warning, colors.success][strength];
+  const strengthLabel = ['', 'Weak', 'Fair', 'Strong'][strength];
+
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.primary }]}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
+
+          {/* ── Header ── */}
           <View style={styles.header}>
-            <MaterialCommunityIcons name="account-plus" size={64} color={Colors.white} />
-            <Text style={styles.title}>{t('auth.createAccount')}</Text>
-            <Text style={styles.subtitle}>{t('auth.joinPSC')}</Text>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => router.back()}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={20} color="#fff" />
+            </TouchableOpacity>
+            <View style={styles.headerCenter}>
+              <View style={styles.headerIcon}>
+                <MaterialCommunityIcons name="account-plus" size={32} color={colors.primary} />
+              </View>
+              <Text style={styles.headerTitle}>{t('auth.createAccount')}</Text>
+              <Text style={styles.headerSubtitle}>{t('auth.joinPSC')}</Text>
+            </View>
           </View>
 
-          {/* Form */}
-          <View style={[styles.formContainer, { backgroundColor: colors.surface }]}>
+          {/* ── Form card ── */}
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+
+            {/* Error */}
             {error && (
-              <HelperText type="error" visible={!!error} style={[styles.errorText, { backgroundColor: colors.errorLight }]}>
-                {error}
-              </HelperText>
+              <View style={[styles.errorBox, { backgroundColor: colors.errorLight }]}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.error} />
+                <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+              </View>
             )}
 
             <TextInput
-              label={t('auth.fullNameOptional')}
+              label={`${t('auth.fullNameOptional')} (optional)`}
               value={fullName}
               onChangeText={setFullName}
               mode="outlined"
               style={[styles.input, { backgroundColor: colors.surface }]}
-              left={<TextInput.Icon icon="account" />}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              left={<TextInput.Icon icon="account-outline" />}
               autoCapitalize="words"
             />
 
@@ -102,7 +111,9 @@ export default function SignUpScreen() {
               onChangeText={setEmail}
               mode="outlined"
               style={[styles.input, { backgroundColor: colors.surface }]}
-              left={<TextInput.Icon icon="email" />}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              left={<TextInput.Icon icon="email-outline" />}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -114,15 +125,37 @@ export default function SignUpScreen() {
               onChangeText={setPassword}
               mode="outlined"
               style={[styles.input, { backgroundColor: colors.surface }]}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
               secureTextEntry={!showPassword}
-              left={<TextInput.Icon icon="lock" />}
+              left={<TextInput.Icon icon="lock-outline" />}
               right={
                 <TextInput.Icon
-                  icon={showPassword ? 'eye-off' : 'eye'}
+                  icon={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   onPress={() => setShowPassword(!showPassword)}
                 />
               }
             />
+
+            {/* Password strength */}
+            {password.length > 0 && (
+              <View style={styles.strengthRow}>
+                <View style={styles.strengthBars}>
+                  {[1, 2, 3].map(i => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.strengthBar,
+                        { backgroundColor: i <= strength ? strengthColor : colors.border },
+                      ]}
+                    />
+                  ))}
+                </View>
+                <Text style={[styles.strengthLabel, { color: strengthColor }]}>
+                  {strengthLabel}
+                </Text>
+              </View>
+            )}
 
             <TextInput
               label={t('auth.confirmPassword')}
@@ -130,34 +163,59 @@ export default function SignUpScreen() {
               onChangeText={setConfirmPassword}
               mode="outlined"
               style={[styles.input, { backgroundColor: colors.surface }]}
+              outlineColor={confirmPassword && confirmPassword !== password ? colors.error : colors.border}
+              activeOutlineColor={colors.primary}
               secureTextEntry={!showPassword}
-              left={<TextInput.Icon icon="lock-check" />}
+              left={<TextInput.Icon icon="lock-check-outline" />}
             />
 
-            <Button
-              mode="contained"
+            {/* Match indicator */}
+            {confirmPassword.length > 0 && (
+              <View style={styles.matchRow}>
+                <MaterialCommunityIcons
+                  name={confirmPassword === password ? 'check-circle' : 'close-circle'}
+                  size={14}
+                  color={confirmPassword === password ? colors.success : colors.error}
+                />
+                <Text style={[
+                  styles.matchText,
+                  { color: confirmPassword === password ? colors.success : colors.error },
+                ]}>
+                  {confirmPassword === password ? 'Passwords match' : 'Passwords do not match'}
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.signupBtn,
+                { backgroundColor: isLoading ? colors.primary + '80' : colors.primary },
+              ]}
               onPress={handleSignUp}
-              loading={isLoading}
               disabled={isLoading}
-              style={styles.signUpButton}
-              contentStyle={styles.buttonContent}
+              activeOpacity={0.85}
             >
-              {t('auth.createAccount')}
-            </Button>
+              {isLoading
+                ? <MaterialCommunityIcons name="loading" size={20} color="#fff" />
+                : <MaterialCommunityIcons name="account-plus" size={18} color="#fff" />
+              }
+              <Text style={styles.signupBtnText}>{t('auth.createAccount')}</Text>
+            </TouchableOpacity>
+
+            {/* Terms note */}
+            <Text style={[styles.termsNote, { color: colors.textTertiary }]}>
+              {t('auth.termsAgreement')}
+            </Text>
           </View>
 
-          {/* Back to Login */}
-          <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>{t('auth.haveAccount')} </Text>
-            <Button
-              mode="text"
-              onPress={() => router.back()}
-              textColor={Colors.white}
-              compact
-            >
-              {t('auth.signIn')}
-            </Button>
+          {/* ── Login link ── */}
+          <View style={styles.loginRow}>
+            <Text style={styles.loginPrompt}>{t('auth.haveAccount')} </Text>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Text style={styles.loginLink}>{t('auth.signIn')}</Text>
+            </TouchableOpacity>
           </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -165,62 +223,62 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.primary,
+  container: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
+
+  header: { paddingTop: 16, paddingBottom: 28 },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
   },
-  keyboardView: {
-    flex: 1,
+  headerCenter: { alignItems: 'center' },
+  headerIcon: {
+    width: 70, height: 70, borderRadius: 35,
+    backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 12,
+    elevation: 4, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8,
   },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: Spacing.xl,
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
+
+  card: {
+    borderRadius: 24, padding: 24,
+    elevation: 8, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 16,
   },
-  header: {
-    alignItems: 'center',
-    paddingTop: Spacing['2xl'],
-    paddingBottom: Spacing.xl,
+
+  errorBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    padding: 12, borderRadius: 10, marginBottom: 14,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Colors.white,
-    marginTop: Spacing.base,
+  errorText: { flex: 1, fontSize: 13, lineHeight: 19 },
+
+  input: { marginBottom: 12 },
+
+  strengthRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: -6, marginBottom: 12 },
+  strengthBars: { flexDirection: 'row', gap: 4, flex: 1 },
+  strengthBar: { flex: 1, height: 3, borderRadius: 2 },
+  strengthLabel: { fontSize: 11, fontWeight: '700' },
+
+  matchRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: -6, marginBottom: 12 },
+  matchText: { fontSize: 12, fontWeight: '500' },
+
+  signupBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 15, borderRadius: 14, marginTop: 4,
   },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: Spacing.xs,
+  signupBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+
+  termsNote: { fontSize: 11, textAlign: 'center', lineHeight: 17, marginTop: 14 },
+
+  loginRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    marginTop: 24,
   },
-  formContainer: {
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.xl,
-    elevation: 4,
-  },
-  errorText: {
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.sm,
-    fontSize: 14,
-  },
-  input: {
-    marginBottom: Spacing.md,
-  },
-  signUpButton: {
-    borderRadius: BorderRadius.lg,
-    marginTop: Spacing.sm,
-  },
-  buttonContent: {
-    paddingVertical: Spacing.sm,
-  },
-  loginContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.xl,
-    paddingBottom: Spacing['2xl'],
-  },
-  loginText: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
+  loginPrompt: { fontSize: 14, color: 'rgba(255,255,255,0.75)' },
+  loginLink: { fontSize: 14, fontWeight: '800', color: '#fff', textDecorationLine: 'underline' },
 });

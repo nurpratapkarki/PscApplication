@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View, StyleSheet, ScrollView, TouchableOpacity,
+  Alert, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Card, Text, TextInput, Button, Chip, ActivityIndicator, RadioButton, SegmentedButtons, ProgressBar } from 'react-native-paper';
+import { Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -13,22 +16,186 @@ import { createQuestion, bulkUploadQuestions, BulkUploadResponse } from '../../s
 import { validateUploadFile, VALID_UPLOAD_MIME_TYPES } from '../../utils/fileValidation';
 import { useColors } from '../../hooks/useColors';
 import { useLocalizedField } from '../../hooks/useLocalizedField';
-import { ColorScheme } from '../../constants/colors';
-import { Spacing, BorderRadius } from '../../constants/typography';
 
-interface AnswerOption {
-  text: string;
-  isCorrect: boolean;
-}
-
+interface AnswerOption { text: string; isCorrect: boolean; }
 type UploadMode = 'single' | 'bulk';
 
+// ── Reusable chip selector ────────────────────────────────────────────────────
+function ChipGroup<T>({
+  items,
+  selected,
+  onSelect,
+  getKey,
+  getLabel,
+  activeColor,
+  colors,
+}: {
+  items: T[];
+  selected: T | null;
+  onSelect: (item: T) => void;
+  getKey: (item: T) => string | number;
+  getLabel: (item: T) => string;
+  activeColor: string;
+  colors: ReturnType<typeof useColors>;
+}) {
+  return (
+    <View style={chipStyles.row}>
+      {items.map(item => {
+        const active = selected !== null && getKey(item) === getKey(selected as T);
+        return (
+          <TouchableOpacity
+            key={getKey(item)}
+            style={[
+              chipStyles.chip,
+              {
+                backgroundColor: active ? activeColor + '15' : colors.surfaceVariant,
+                borderColor: active ? activeColor : 'transparent',
+              },
+            ]}
+            onPress={() => onSelect(item)}
+          >
+            <Text style={[chipStyles.chipText, { color: active ? activeColor : colors.textSecondary }]}>
+              {getLabel(item)}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+const chipStyles = StyleSheet.create({
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 20, borderWidth: 1.5,
+  },
+  chipText: { fontSize: 13, fontWeight: '600' },
+});
+
+// ── Answer option row ─────────────────────────────────────────────────────────
+function AnswerRow({
+  index,
+  answer,
+  onChange,
+  onSetCorrect,
+  colors,
+  t,
+  disabled,
+}: {
+  index: number;
+  answer: AnswerOption;
+  onChange: (text: string) => void;
+  onSetCorrect: () => void;
+  colors: ReturnType<typeof useColors>;
+  t: (k: string, o?: any) => string;
+  disabled?: boolean;
+}) {
+  const label = String.fromCharCode(65 + index);
+  return (
+    <View style={[
+      answerStyles.row,
+      {
+        backgroundColor: answer.isCorrect ? colors.success + '08' : colors.surface,
+        borderColor: answer.isCorrect ? colors.success : colors.border,
+      },
+    ]}>
+      <TouchableOpacity
+        style={[
+          answerStyles.selector,
+          {
+            backgroundColor: answer.isCorrect ? colors.success : colors.surfaceVariant,
+            borderColor: answer.isCorrect ? colors.success : colors.border,
+          },
+        ]}
+        onPress={onSetCorrect}
+        disabled={disabled}
+      >
+        {answer.isCorrect
+          ? <MaterialCommunityIcons name="check" size={14} color="#fff" />
+          : <Text style={[answerStyles.selectorLabel, { color: colors.textSecondary }]}>{label}</Text>
+        }
+      </TouchableOpacity>
+      <TextInput
+        mode="flat"
+        placeholder={t('contribute.answerOption', { option: label })}
+        value={answer.text}
+        onChangeText={onChange}
+        style={[answerStyles.input, { backgroundColor: 'transparent' }]}
+        underlineColor="transparent"
+        activeUnderlineColor="transparent"
+        disabled={disabled}
+        dense
+      />
+    </View>
+  );
+}
+
+const answerStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingRight: 12,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  selector: {
+    width: 36, height: 44,
+    alignItems: 'center', justifyContent: 'center',
+    borderRightWidth: 1.5, borderRightColor: 'inherit',
+    marginRight: 4,
+  },
+  selectorLabel: { fontSize: 13, fontWeight: '800' },
+  input: { flex: 1, fontSize: 14 },
+});
+
+// ── Section card ──────────────────────────────────────────────────────────────
+function SectionCard({
+  title,
+  icon,
+  iconColor,
+  colors,
+  children,
+}: {
+  title: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  iconColor: string;
+  colors: ReturnType<typeof useColors>;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={[sectionStyles.card, { backgroundColor: colors.surface }]}>
+      <View style={sectionStyles.header}>
+        <View style={[sectionStyles.iconWrap, { backgroundColor: iconColor + '15' }]}>
+          <MaterialCommunityIcons name={icon} size={16} color={iconColor} />
+        </View>
+        <Text style={[sectionStyles.title, { color: colors.textPrimary }]}>{title}</Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+const sectionStyles = StyleSheet.create({
+  card: {
+    borderRadius: 16, padding: 16, marginBottom: 14,
+    elevation: 1, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  iconWrap: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 14, fontWeight: '700' },
+});
+
+// ── Main screen ───────────────────────────────────────────────────────────────
 export default function AddQuestionScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const colors = useColors();
   const lf = useLocalizedField();
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
+
   const { data: branches, status: branchStatus } = usePaginatedApi<Branch>('/api/branches/');
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [selectedSubBranch, setSelectedSubBranch] = useState<number | null>(null);
@@ -39,10 +206,7 @@ export default function AddQuestionScreen() {
     true
   );
 
-  // Mode selection
   const [uploadMode, setUploadMode] = useState<UploadMode>('single');
-
-  // Single question form state
   const [questionText, setQuestionText] = useState('');
   const [questionTextNp, setQuestionTextNp] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -53,37 +217,22 @@ export default function AddQuestionScreen() {
     { text: '', isCorrect: false },
   ]);
   const [explanation, setExplanation] = useState('');
-  const [explanationNp, setExplanationNp] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Bulk upload state
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ uploading: boolean; result: BulkUploadResponse | null }>({
-    uploading: false,
-    result: null,
+    uploading: false, result: null,
   });
 
-  // Handle branch selection
   const handleBranchSelect = (branch: Branch) => {
     setSelectedBranch(branch);
     setSelectedSubBranch(null);
     setSelectedCategory(null);
   };
 
-  // Handle sub-branch selection (0 means "All" / no filter)
-  const handleSubBranchSelect = (subBranchId: number) => {
-    setSelectedSubBranch(subBranchId === 0 ? null : subBranchId);
-    setSelectedCategory(null);
-  };
-
-  // Refetch categories when branch or sub-branch changes
   React.useEffect(() => {
-    if (selectedBranch) {
-      fetchCategories();
-    }
+    if (selectedBranch) fetchCategories();
   }, [selectedBranch?.id, selectedSubBranch, fetchCategories, selectedBranch]);
 
-  // Group categories by scope for display
   const groupedCategories = React.useMemo(() => {
     if (!categories) return { universal: [] as Category[], branch: [] as Category[], subbranch: [] as Category[] };
     return {
@@ -93,31 +242,18 @@ export default function AddQuestionScreen() {
     };
   }, [categories]);
 
-  const updateAnswer = (index: number, text: string) => {
-    const newAnswers = [...answers];
-    newAnswers[index].text = text;
-    setAnswers(newAnswers);
+  const updateAnswer = (i: number, text: string) => {
+    const a = [...answers]; a[i].text = text; setAnswers(a);
   };
-
-  const setCorrectAnswer = (index: number) => {
-    const newAnswers = answers.map((a, i) => ({ ...a, isCorrect: i === index }));
-    setAnswers(newAnswers);
+  const setCorrectAnswer = (i: number) => {
+    setAnswers(answers.map((a, idx) => ({ ...a, isCorrect: idx === i })));
   };
 
   const handleSingleSubmit = async () => {
-    if (!questionText.trim()) {
-      Alert.alert(t('contribute.missingQuestionTitle'), t('contribute.missingQuestionMessage'));
-      return;
-    }
-    if (!selectedCategory) {
-      Alert.alert(t('contribute.missingCategoryTitle'), t('contribute.missingCategoryMessage'));
-      return;
-    }
-    if (answers.some((a) => !a.text.trim())) {
-      Alert.alert(t('contribute.missingAnswersTitle'), t('contribute.missingAnswersMessage'));
-      return;
-    }
-    
+    if (!questionText.trim()) return Alert.alert(t('contribute.missingQuestionTitle'), t('contribute.missingQuestionMessage'));
+    if (!selectedCategory) return Alert.alert(t('contribute.missingCategoryTitle'), t('contribute.missingCategoryMessage'));
+    if (answers.some(a => !a.text.trim())) return Alert.alert(t('contribute.missingAnswersTitle'), t('contribute.missingAnswersMessage'));
+
     setIsSubmitting(true);
     try {
       await createQuestion({
@@ -125,19 +261,18 @@ export default function AddQuestionScreen() {
         question_text_np: questionTextNp || questionText,
         category: selectedCategory.id,
         explanation_en: explanation,
-        explanation_np: explanationNp || explanation,
+        explanation_np: explanation,
         consent_given: true,
-        answers: answers.map((a, index) => ({
-          answer_text_en: a.text,
-          answer_text_np: a.text,
-          is_correct: a.isCorrect,
-          display_order: index,
+        answers: answers.map((a, i) => ({
+          answer_text_en: a.text, answer_text_np: a.text,
+          is_correct: a.isCorrect, display_order: i,
         })),
       });
-      Alert.alert(t('common.success'), t('contribute.submittedForReview'), [{ text: t('common.ok'), onPress: () => router.back() }]);
+      Alert.alert(t('common.success'), t('contribute.submittedForReview'), [
+        { text: t('common.ok'), onPress: () => router.back() },
+      ]);
     } catch (err) {
-      const message = err instanceof Error ? err.message : t('contribute.submitFailed');
-      Alert.alert(t('common.error'), message);
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('contribute.submitFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -145,55 +280,28 @@ export default function AddQuestionScreen() {
 
   const handleFilePick = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: [...VALID_UPLOAD_MIME_TYPES],
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
+      const result = await DocumentPicker.getDocumentAsync({ type: [...VALID_UPLOAD_MIME_TYPES], copyToCacheDirectory: true });
+      if (!result.canceled && result.assets?.[0]) {
         const file = result.assets[0];
-        
-        // Validate file type using shared utility
-        const validation = validateUploadFile({
-          name: file.name,
-          type: file.mimeType,
-          size: file.size,
-        });
-        
-        if (!validation.isValid) {
-          Alert.alert(t('contribute.invalidFileTitle'), validation.error || t('contribute.invalidFileMessage'));
-          return;
-        }
-        
+        const validation = validateUploadFile({ name: file.name, type: file.mimeType, size: file.size });
+        if (!validation.isValid) return Alert.alert(t('contribute.invalidFileTitle'), validation.error || t('contribute.invalidFileMessage'));
         setSelectedFile(file);
         setUploadProgress({ uploading: false, result: null });
       }
-    } catch {
-      Alert.alert(t('common.error'), t('contribute.filePickFailed'));
-    }
+    } catch { Alert.alert(t('common.error'), t('contribute.filePickFailed')); }
   };
 
   const handleBulkUpload = async () => {
-    if (!selectedFile) {
-      Alert.alert(t('contribute.noFileSelectedTitle'), t('contribute.noFileSelectedMessage'));
-      return;
-    }
-    if (!selectedCategory) {
-      Alert.alert(t('contribute.missingCategoryTitle'), t('contribute.missingCategoryForBulk'));
-      return;
-    }
+    if (!selectedFile) return Alert.alert(t('contribute.noFileSelectedTitle'), t('contribute.noFileSelectedMessage'));
+    if (!selectedCategory) return Alert.alert(t('contribute.missingCategoryTitle'), t('contribute.missingCategoryForBulk'));
 
     setUploadProgress({ uploading: true, result: null });
-    
     try {
-      // Create a File object from the DocumentPicker result
       const response = await fetch(selectedFile.uri);
       const blob = await response.blob();
       const file = new File([blob], selectedFile.name, { type: selectedFile.mimeType || 'application/octet-stream' });
-      
       const result = await bulkUploadQuestions(file, selectedCategory.id);
       setUploadProgress({ uploading: false, result });
-      
       if (result.success) {
         Alert.alert(
           t('contribute.uploadCompleteTitle'),
@@ -204,373 +312,393 @@ export default function AddQuestionScreen() {
         Alert.alert(t('contribute.uploadFailedTitle'), result.errors?.join('\n') || t('contribute.unknownError'));
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : t('contribute.uploadFailedMessage');
-      Alert.alert(t('common.error'), message);
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('contribute.uploadFailedMessage'));
       setUploadProgress({ uploading: false, result: null });
     }
   };
 
+  const isLoading = uploadMode === 'single' ? isSubmitting : uploadProgress.uploading;
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
+
+        {/* ── Top bar ── */}
+        <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <TouchableOpacity
+            style={[styles.backBtn, { backgroundColor: colors.surfaceVariant }]}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t('contribute.addQuestion')}</Text>
-          <View style={{ width: 44 }} />
+          <Text style={[styles.topBarTitle, { color: colors.textPrimary }]}>
+            {t('contribute.addQuestion')}
+          </Text>
+          <View style={{ width: 36 }} />
+        </View>
+
+        {/* ── Mode toggle ── */}
+        <View style={[styles.modeToggle, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          {(['single', 'bulk'] as UploadMode[]).map(mode => {
+            const active = uploadMode === mode;
+            return (
+              <TouchableOpacity
+                key={mode}
+                style={[
+                  styles.modeBtn,
+                  { borderBottomColor: active ? colors.primary : 'transparent' },
+                ]}
+                onPress={() => setUploadMode(mode)}
+              >
+                <MaterialCommunityIcons
+                  name={mode === 'single' ? 'file-document-outline' : 'file-upload-outline'}
+                  size={16}
+                  color={active ? colors.primary : colors.textSecondary}
+                />
+                <Text style={[
+                  styles.modeBtnText,
+                  { color: active ? colors.primary : colors.textSecondary },
+                ]}>
+                  {mode === 'single' ? t('contribute.singleQuestion') : t('contribute.bulkUpload')}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Upload Mode Selection */}
-          <SegmentedButtons
-            value={uploadMode}
-            onValueChange={(v) => setUploadMode(v as UploadMode)}
-            buttons={[
-              { value: 'single', label: t('contribute.singleQuestion'), icon: 'file-document' },
-              { value: 'bulk', label: t('contribute.bulkUpload'), icon: 'file-upload' },
-            ]}
-            style={styles.modeSelector}
-          />
 
-          {/* Branch Selection */}
-          <Card style={styles.card}>
-            <Card.Content>
-              <Text style={styles.inputLabel}>{t('contribute.selectBranch')}</Text>
-              {branchStatus === 'loading' ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <View style={styles.chipRow}>
-                  {branches?.map((branch) => (
-                    <Chip
-                      key={branch.id}
-                      selected={selectedBranch?.id === branch.id}
-                      onPress={() => handleBranchSelect(branch)}
-                      style={styles.chip}
-                      selectedColor={colors.primary}
+          {/* ── Branch selection ── */}
+          <SectionCard title={t('contribute.selectBranch')} icon="source-branch" iconColor={colors.primary} colors={colors}>
+            {branchStatus === 'loading' ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <ChipGroup
+                items={branches ?? []}
+                selected={selectedBranch}
+                onSelect={handleBranchSelect}
+                getKey={b => b.id}
+                getLabel={b => lf(b.name_en, b.name_np)}
+                activeColor={colors.primary}
+                colors={colors}
+              />
+            )}
+
+            {selectedBranch?.has_sub_branches && (selectedBranch.sub_branches?.length ?? 0) > 0 && (
+              <View style={{ marginTop: 14 }}>
+                <Text style={[styles.subLabel, { color: colors.textSecondary }]}>
+                  {t('contribute.selectSubBranch', { defaultValue: 'Sub-branch (optional)' })}
+                </Text>
+                <View style={chipStyles.row}>
+                  <TouchableOpacity
+                    style={[chipStyles.chip, {
+                      backgroundColor: selectedSubBranch === null ? colors.primary + '15' : colors.surfaceVariant,
+                      borderColor: selectedSubBranch === null ? colors.primary : 'transparent',
+                    }]}
+                    onPress={() => { setSelectedSubBranch(null); setSelectedCategory(null); }}
+                  >
+                    <Text style={[chipStyles.chipText, { color: selectedSubBranch === null ? colors.primary : colors.textSecondary }]}>
+                      All
+                    </Text>
+                  </TouchableOpacity>
+                  {selectedBranch.sub_branches?.map(sb => (
+                    <TouchableOpacity
+                      key={sb.id}
+                      style={[chipStyles.chip, {
+                        backgroundColor: selectedSubBranch === sb.id ? colors.primary + '15' : colors.surfaceVariant,
+                        borderColor: selectedSubBranch === sb.id ? colors.primary : 'transparent',
+                      }]}
+                      onPress={() => { setSelectedSubBranch(sb.id); setSelectedCategory(null); }}
                     >
-                      {lf(branch.name_en, branch.name_np)}
-                    </Chip>
+                      <Text style={[chipStyles.chipText, { color: selectedSubBranch === sb.id ? colors.primary : colors.textSecondary }]}>
+                        {lf(sb.name_en, sb.name_np)}
+                      </Text>
+                    </TouchableOpacity>
                   ))}
                 </View>
-              )}
+              </View>
+            )}
+          </SectionCard>
 
-              {/* Sub-branch selection if applicable */}
-              {selectedBranch?.has_sub_branches && (selectedBranch.sub_branches?.length ?? 0) > 0 && (
-                <>
-                  <Text style={[styles.inputLabel, { marginTop: Spacing.md }]}>
-                    {t('contribute.selectSubBranch', { defaultValue: 'Select Sub-Branch (optional)' })}
-                  </Text>
-                  <View style={styles.chipRow}>
-                    <Chip
-                      selected={selectedSubBranch === null}
-                      onPress={() => handleSubBranchSelect(0)}
-                      style={styles.chip}
-                      selectedColor={colors.primary}
-                    >
-                      {t('common.allTests', { defaultValue: 'All' })}
-                    </Chip>
-                    {selectedBranch.sub_branches?.map((sb) => (
-                      <Chip
-                        key={sb.id}
-                        selected={selectedSubBranch === sb.id}
-                        onPress={() => handleSubBranchSelect(sb.id)}
-                        style={styles.chip}
-                        selectedColor={colors.primary}
-                      >
-                        {lf(sb.name_en, sb.name_np)}
-                      </Chip>
-                    ))}
-                  </View>
-                </>
-              )}
-            </Card.Content>
-          </Card>
-
-          {/* Category Selection — grouped by scope */}
+          {/* ── Category selection ── */}
           {selectedBranch && (
-            <Card style={styles.card}>
-              <Card.Content>
-                <Text style={styles.inputLabel}>{t('contribute.selectCategory')}</Text>
-                {categoryStatus === 'loading' ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <View>
-                    {groupedCategories.universal.length > 0 && (
-                      <>
-                        <Text style={[styles.inputHint, { fontWeight: '600', color: colors.info }]}>
-                          {t('practice.universalSubjects', { defaultValue: 'Common Subjects' })}
-                        </Text>
-                        <View style={styles.chipRow}>
-                          {groupedCategories.universal.map((cat) => (
-                            <Chip
-                              key={cat.id}
-                              selected={selectedCategory?.id === cat.id}
-                              onPress={() => setSelectedCategory(cat)}
-                              style={styles.chip}
-                              selectedColor={colors.info}
-                            >
-                              {lf(cat.name_en, cat.name_np)}
-                            </Chip>
-                          ))}
-                        </View>
-                      </>
-                    )}
-                    {groupedCategories.branch.length > 0 && (
-                      <>
-                        <Text style={[styles.inputHint, { fontWeight: '600', color: colors.accent, marginTop: Spacing.sm }]}>
-                          {t('practice.branchSubjects', { defaultValue: 'Service Specific' })}
-                        </Text>
-                        <View style={styles.chipRow}>
-                          {groupedCategories.branch.map((cat) => (
-                            <Chip
-                              key={cat.id}
-                              selected={selectedCategory?.id === cat.id}
-                              onPress={() => setSelectedCategory(cat)}
-                              style={styles.chip}
-                              selectedColor={colors.accent}
-                            >
-                              {lf(cat.name_en, cat.name_np)}
-                            </Chip>
-                          ))}
-                        </View>
-                      </>
-                    )}
-                    {groupedCategories.subbranch.length > 0 && (
-                      <>
-                        <Text style={[styles.inputHint, { fontWeight: '600', color: colors.secondary, marginTop: Spacing.sm }]}>
-                          {t('practice.subBranchSubjects', { defaultValue: 'Specialization' })}
-                        </Text>
-                        <View style={styles.chipRow}>
-                          {groupedCategories.subbranch.map((cat) => (
-                            <Chip
-                              key={cat.id}
-                              selected={selectedCategory?.id === cat.id}
-                              onPress={() => setSelectedCategory(cat)}
-                              style={styles.chip}
-                              selectedColor={colors.secondary}
-                            >
-                              {lf(cat.name_en, cat.name_np)}
-                            </Chip>
-                          ))}
-                        </View>
-                      </>
-                    )}
-                    {categories && categories.length === 0 && (
-                      <Text style={styles.inputHint}>{t('practice.noCategories')}</Text>
-                    )}
-                  </View>
-                )}
-              </Card.Content>
-            </Card>
+            <SectionCard title={t('contribute.selectCategory')} icon="tag-outline" iconColor={colors.accent} colors={colors}>
+              {categoryStatus === 'loading' ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <View style={{ gap: 12 }}>
+                  {groupedCategories.universal.length > 0 && (
+                    <View>
+                      <Text style={[styles.catGroupLabel, { color: colors.info }]}>Common Subjects</Text>
+                      <ChipGroup
+                        items={groupedCategories.universal}
+                        selected={selectedCategory}
+                        onSelect={setSelectedCategory}
+                        getKey={c => c.id}
+                        getLabel={c => lf(c.name_en, c.name_np)}
+                        activeColor={colors.info}
+                        colors={colors}
+                      />
+                    </View>
+                  )}
+                  {groupedCategories.branch.length > 0 && (
+                    <View>
+                      <Text style={[styles.catGroupLabel, { color: colors.accent }]}>Service Specific</Text>
+                      <ChipGroup
+                        items={groupedCategories.branch}
+                        selected={selectedCategory}
+                        onSelect={setSelectedCategory}
+                        getKey={c => c.id}
+                        getLabel={c => lf(c.name_en, c.name_np)}
+                        activeColor={colors.accent}
+                        colors={colors}
+                      />
+                    </View>
+                  )}
+                  {groupedCategories.subbranch.length > 0 && (
+                    <View>
+                      <Text style={[styles.catGroupLabel, { color: colors.secondary }]}>Specialization</Text>
+                      <ChipGroup
+                        items={groupedCategories.subbranch}
+                        selected={selectedCategory}
+                        onSelect={setSelectedCategory}
+                        getKey={c => c.id}
+                        getLabel={c => lf(c.name_en, c.name_np)}
+                        activeColor={colors.secondary}
+                        colors={colors}
+                      />
+                    </View>
+                  )}
+                  {categories?.length === 0 && (
+                    <Text style={[styles.subLabel, { color: colors.textSecondary }]}>
+                      {t('practice.noCategories')}
+                    </Text>
+                  )}
+                </View>
+              )}
+            </SectionCard>
           )}
 
           {uploadMode === 'single' ? (
             <>
-              {/* Question Text */}
-              <Card style={styles.card}>
-                <Card.Content>
-                  <Text style={styles.inputLabel}>{t('contribute.questionTextEn')}</Text>
-                  <TextInput 
-                    mode="outlined" 
-                    placeholder={t('contribute.questionPlaceholderEn')}
-                    value={questionText} 
-                    onChangeText={setQuestionText} 
-                    multiline 
-                    numberOfLines={4} 
-                    style={styles.textArea} 
-                    outlineColor={colors.border} 
-                    activeOutlineColor={colors.primary} 
-                  />
-                  <Text style={[styles.inputLabel, { marginTop: Spacing.md }]}>{t('contribute.questionTextNp')}</Text>
-                  <TextInput 
-                    mode="outlined" 
-                    placeholder={t('contribute.questionPlaceholderNp')}
-                    value={questionTextNp} 
-                    onChangeText={setQuestionTextNp} 
-                    multiline 
-                    numberOfLines={3} 
-                    style={styles.textArea} 
-                    outlineColor={colors.border} 
-                    activeOutlineColor={colors.primary} 
-                  />
-                </Card.Content>
-              </Card>
+              {/* ── Question text ── */}
+              <SectionCard title={t('contribute.questionTextEn')} icon="help-circle-outline" iconColor={colors.primary} colors={colors}>
+                <TextInput
+                  mode="outlined"
+                  placeholder={t('contribute.questionPlaceholderEn')}
+                  value={questionText}
+                  onChangeText={setQuestionText}
+                  multiline numberOfLines={4}
+                  style={[styles.textArea, { backgroundColor: colors.surface }]}
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                />
+                <Text style={[styles.subLabel, { color: colors.textSecondary, marginTop: 12, marginBottom: 6 }]}>
+                  {t('contribute.questionTextNp')} <Text style={{ color: colors.textTertiary }}>(optional)</Text>
+                </Text>
+                <TextInput
+                  mode="outlined"
+                  placeholder={t('contribute.questionPlaceholderNp')}
+                  value={questionTextNp}
+                  onChangeText={setQuestionTextNp}
+                  multiline numberOfLines={3}
+                  style={[styles.textArea, { backgroundColor: colors.surface }]}
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                />
+              </SectionCard>
 
-              {/* Answer Options */}
-              <Card style={styles.card}>
-                <Card.Content>
-                  <Text style={styles.inputLabel}>{t('contribute.answerOptions')}</Text>
-                  <Text style={styles.inputHint}>{t('contribute.answerHint')}</Text>
-                  {answers.map((answer, index) => (
-                    <View key={index} style={styles.answerRow}>
-                      <RadioButton 
-                        value={String(index)} 
-                        status={answer.isCorrect ? 'checked' : 'unchecked'} 
-                        onPress={() => setCorrectAnswer(index)} 
-                        color={colors.success} 
-                      />
-                      <TextInput 
-                        mode="outlined" 
-                        placeholder={t('contribute.answerOption', { option: String.fromCharCode(65 + index) })}
-                        value={answer.text} 
-                        onChangeText={(text) => updateAnswer(index, text)} 
-                        style={styles.answerInput} 
-                        outlineColor={answer.isCorrect ? colors.success : colors.border} 
-                        activeOutlineColor={answer.isCorrect ? colors.success : colors.primary} 
-                        dense 
-                      />
-                    </View>
-                  ))}
-                </Card.Content>
-              </Card>
-
-              {/* Explanation */}
-              <Card style={styles.card}>
-                <Card.Content>
-                  <Text style={styles.inputLabel}>{t('contribute.explanationOptional')}</Text>
-                  <TextInput 
-                    mode="outlined" 
-                    placeholder={t('contribute.explanationPlaceholder')}
-                    value={explanation} 
-                    onChangeText={setExplanation} 
-                    multiline 
-                    numberOfLines={3} 
-                    style={styles.textArea} 
-                    outlineColor={colors.border} 
-                    activeOutlineColor={colors.primary} 
+              {/* ── Answer options ── */}
+              <SectionCard title={t('contribute.answerOptions')} icon="format-list-bulleted" iconColor={colors.success} colors={colors}>
+                <Text style={[styles.subLabel, { color: colors.textSecondary, marginBottom: 10 }]}>
+                  {t('contribute.answerHint')}
+                </Text>
+                {answers.map((answer, i) => (
+                  <AnswerRow
+                    key={i}
+                    index={i}
+                    answer={answer}
+                    onChange={text => updateAnswer(i, text)}
+                    onSetCorrect={() => setCorrectAnswer(i)}
+                    colors={colors}
+                    t={t}
                   />
-                </Card.Content>
-              </Card>
+                ))}
+              </SectionCard>
+
+              {/* ── Explanation ── */}
+              <SectionCard title={`${t('contribute.explanationOptional')} (optional)`} icon="lightbulb-outline" iconColor={colors.warning} colors={colors}>
+                <TextInput
+                  mode="outlined"
+                  placeholder={t('contribute.explanationPlaceholder')}
+                  value={explanation}
+                  onChangeText={setExplanation}
+                  multiline numberOfLines={3}
+                  style={[styles.textArea, { backgroundColor: colors.surface }]}
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                />
+              </SectionCard>
             </>
           ) : (
             <>
-              {/* Bulk Upload Section */}
-              <Card style={styles.card}>
-                <Card.Content>
-                  <Text style={styles.inputLabel}>{t('contribute.uploadFileTitle')}</Text>
-                  <Text style={styles.inputHint}>
-                    {t('contribute.uploadFileHint')}
+              {/* ── Bulk upload ── */}
+              <SectionCard title={t('contribute.uploadFileTitle')} icon="file-upload-outline" iconColor={colors.accent} colors={colors}>
+                <Text style={[styles.subLabel, { color: colors.textSecondary, marginBottom: 12 }]}>
+                  {t('contribute.uploadFileHint')}
+                </Text>
+
+                <TouchableOpacity
+                  style={[
+                    styles.filePicker,
+                    {
+                      borderColor: selectedFile ? colors.success : colors.border,
+                      backgroundColor: selectedFile ? colors.success + '08' : colors.surfaceVariant,
+                    },
+                  ]}
+                  onPress={handleFilePick}
+                >
+                  <MaterialCommunityIcons
+                    name={selectedFile ? 'file-check-outline' : 'upload-outline'}
+                    size={28}
+                    color={selectedFile ? colors.success : colors.textTertiary}
+                  />
+                  <Text style={[styles.filePickerTitle, { color: selectedFile ? colors.success : colors.textPrimary }]}>
+                    {selectedFile ? selectedFile.name : t('contribute.selectFile')}
                   </Text>
-                  
-                  <TouchableOpacity style={styles.filePickerButton} onPress={handleFilePick}>
-                    <MaterialCommunityIcons 
-                      name={selectedFile ? 'file-check' : 'file-upload'} 
-                      size={32} 
-                      color={selectedFile ? colors.success : colors.primary} 
-                    />
-                    <Text style={styles.filePickerText}>
-                      {selectedFile ? selectedFile.name : t('contribute.selectFile')}
+                  {selectedFile && (
+                    <Text style={[styles.filePickerSize, { color: colors.textTertiary }]}>
+                      {((selectedFile.size || 0) / 1024).toFixed(1)} KB
                     </Text>
-                    {selectedFile && (
-                      <Text style={styles.fileSizeText}>
-                        {((selectedFile.size || 0) / 1024).toFixed(1)} KB
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-
-                  {uploadProgress.uploading && (
-                    <View style={styles.progressContainer}>
-                      <Text style={styles.progressText}>{t('contribute.uploading')}</Text>
-                      <ProgressBar indeterminate color={colors.primary} style={styles.progressBar} />
-                    </View>
                   )}
-
-                  {uploadProgress.result && (
-                    <View style={styles.resultContainer}>
-                      <View style={styles.resultRow}>
-                        <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-                        <Text style={styles.resultText}>{t('contribute.uploadedCount', { count: uploadProgress.result.uploaded_count })}</Text>
-                      </View>
-                      {uploadProgress.result.failed_count > 0 && (
-                        <View style={styles.resultRow}>
-                          <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
-                          <Text style={[styles.resultText, { color: colors.error }]}>
-                            {t('contribute.failedCount', { count: uploadProgress.result.failed_count })}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                  {!selectedFile && (
+                    <Text style={[styles.filePickerSub, { color: colors.textTertiary }]}>
+                      PDF, Excel, CSV up to 10MB
+                    </Text>
                   )}
-                </Card.Content>
-              </Card>
+                </TouchableOpacity>
 
-              {/* File Format Info */}
-              <Card style={styles.infoCard}>
-                <Card.Content>
-                  <View style={styles.infoHeader}>
-                    <MaterialCommunityIcons name="information" size={20} color={colors.info} />
-                    <Text style={styles.infoTitle}>{t('contribute.fileFormatTitle')}</Text>
+                {uploadProgress.uploading && (
+                  <View style={styles.uploadingRow}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.uploadingText, { color: colors.textSecondary }]}>
+                      {t('contribute.uploading')}
+                    </Text>
                   </View>
-                  <Text style={styles.infoText}>• {t('contribute.fileFormatPdf')}</Text>
-                  <Text style={styles.infoText}>• {t('contribute.fileFormatExcel')}</Text>
-                  <Text style={styles.infoText}>• {t('contribute.fileFormatMax')}</Text>
-                </Card.Content>
-              </Card>
+                )}
+
+                {uploadProgress.result && (
+                  <View style={[styles.resultBox, { backgroundColor: colors.surfaceVariant }]}>
+                    <View style={styles.resultRow}>
+                      <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
+                      <Text style={[styles.resultText, { color: colors.success }]}>
+                        {uploadProgress.result.uploaded_count} questions uploaded
+                      </Text>
+                    </View>
+                    {uploadProgress.result.failed_count > 0 && (
+                      <View style={styles.resultRow}>
+                        <MaterialCommunityIcons name="alert-circle" size={16} color={colors.error} />
+                        <Text style={[styles.resultText, { color: colors.error }]}>
+                          {uploadProgress.result.failed_count} failed
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </SectionCard>
+
+              {/* ── Format info ── */}
+              <View style={[styles.infoBox, { backgroundColor: colors.info + '10', borderColor: colors.info + '30' }]}>
+                <MaterialCommunityIcons name="information-outline" size={16} color={colors.info} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.infoTitle, { color: colors.info }]}>Accepted formats</Text>
+                  <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                    {t('contribute.fileFormatPdf')} • {t('contribute.fileFormatExcel')} • {t('contribute.fileFormatMax')}
+                  </Text>
+                </View>
+              </View>
             </>
           )}
+
         </ScrollView>
 
-        {/* Submit Button */}
-        <View style={styles.bottomAction}>
-          <Button 
-            mode="contained" 
-            icon={uploadMode === 'single' ? 'send' : 'upload'} 
-            style={styles.submitButton} 
-            contentStyle={styles.submitButtonContent} 
-            labelStyle={styles.submitButtonLabel} 
-            onPress={uploadMode === 'single' ? handleSingleSubmit : handleBulkUpload} 
-            loading={isSubmitting || uploadProgress.uploading} 
-            disabled={isSubmitting || uploadProgress.uploading || (uploadMode === 'bulk' && !selectedFile)}
+        {/* ── Submit bar ── */}
+        <View style={[styles.submitBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          <TouchableOpacity
+            style={[
+              styles.submitBtn,
+              { backgroundColor: isLoading ? colors.primary + '60' : colors.primary },
+            ]}
+            onPress={uploadMode === 'single' ? handleSingleSubmit : handleBulkUpload}
+            disabled={isLoading || (uploadMode === 'bulk' && !selectedFile)}
+            activeOpacity={0.85}
           >
-            {uploadMode === 'single' ? t('contribute.submitForReview') : t('contribute.uploadQuestions')}
-          </Button>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <MaterialCommunityIcons
+                name={uploadMode === 'single' ? 'send' : 'upload'}
+                size={18}
+                color="#fff"
+              />
+            )}
+            <Text style={styles.submitBtnText}>
+              {uploadMode === 'single' ? t('contribute.submitForReview') : t('contribute.uploadQuestions')}
+            </Text>
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const createStyles = (colors: ColorScheme) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.base },
-  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.cardBackground, alignItems: 'center', justifyContent: 'center', elevation: 2 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
-  scrollContent: { padding: Spacing.base, paddingBottom: 100 },
-  modeSelector: { marginBottom: Spacing.lg },
-  card: { backgroundColor: colors.cardBackground, borderRadius: BorderRadius.xl, marginBottom: Spacing.lg, elevation: 2 },
-  inputLabel: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: Spacing.sm },
-  inputHint: { fontSize: 12, color: colors.textSecondary, marginBottom: Spacing.md },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  chip: { marginBottom: Spacing.xs },
-  textArea: { backgroundColor: colors.cardBackground },
-  answerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
-  answerInput: { flex: 1, backgroundColor: colors.cardBackground },
-  filePickerButton: { 
-    borderWidth: 2, 
-    borderColor: colors.border, 
-    borderStyle: 'dashed', 
-    borderRadius: BorderRadius.lg, 
-    padding: Spacing.xl, 
-    alignItems: 'center',
-    marginTop: Spacing.sm,
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  filePickerText: { fontSize: 14, color: colors.textSecondary, marginTop: Spacing.sm },
-  fileSizeText: { fontSize: 12, color: colors.textTertiary, marginTop: Spacing.xs },
-  progressContainer: { marginTop: Spacing.lg },
-  progressText: { fontSize: 14, color: colors.textSecondary, marginBottom: Spacing.sm },
-  progressBar: { height: 6, borderRadius: 3 },
-  resultContainer: { marginTop: Spacing.lg, padding: Spacing.md, backgroundColor: colors.surfaceVariant, borderRadius: BorderRadius.md },
-  resultRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
-  resultText: { fontSize: 14, color: colors.textPrimary, marginLeft: Spacing.sm },
-  infoCard: { backgroundColor: colors.infoLight, borderRadius: BorderRadius.xl, marginBottom: Spacing.lg },
-  infoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
-  infoTitle: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginLeft: Spacing.sm },
-  infoText: { fontSize: 13, color: colors.textSecondary, marginBottom: Spacing.xs },
-  bottomAction: { backgroundColor: colors.cardBackground, padding: Spacing.base, borderTopWidth: 1, borderTopColor: colors.border },
-  submitButton: { borderRadius: BorderRadius.lg },
-  submitButtonContent: { paddingVertical: Spacing.sm },
-  submitButtonLabel: { fontSize: 16, fontWeight: '700' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  topBarTitle: { fontSize: 17, fontWeight: '700' },
+  modeToggle: {
+    flexDirection: 'row',
+    borderBottomWidth: 1.5,
+  },
+  modeBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 12, borderBottomWidth: 2.5,
+  },
+  modeBtnText: { fontSize: 14, fontWeight: '600' },
+  scrollContent: { padding: 16, paddingBottom: 24 },
+  subLabel: { fontSize: 12, fontWeight: '600', marginBottom: 6 },
+  catGroupLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 8 },
+  textArea: { fontSize: 14 },
+  filePicker: {
+    borderWidth: 2, borderStyle: 'dashed', borderRadius: 14,
+    padding: 24, alignItems: 'center', gap: 6,
+  },
+  filePickerTitle: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
+  filePickerSize: { fontSize: 11 },
+  filePickerSub: { fontSize: 12 },
+  uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  uploadingText: { fontSize: 13 },
+  resultBox: { borderRadius: 10, padding: 10, marginTop: 10, gap: 5 },
+  resultRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  resultText: { fontSize: 13, fontWeight: '600' },
+  infoBox: {
+    flexDirection: 'row', gap: 10, padding: 12,
+    borderRadius: 12, borderWidth: 1, marginBottom: 8,
+  },
+  infoTitle: { fontSize: 12, fontWeight: '700', marginBottom: 3 },
+  infoText: { fontSize: 12, lineHeight: 18 },
+  submitBar: {
+    padding: 14, borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  submitBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 15, borderRadius: 14,
+  },
+  submitBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
 });

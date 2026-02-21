@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View, StyleSheet, ScrollView, TouchableOpacity,
+  Alert, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { Card, Text, TextInput, Button, Chip, ActivityIndicator, RadioButton } from 'react-native-paper';
+import { Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -12,34 +15,97 @@ import { Branch, Category } from '../../../types/category.types';
 import { Contribution } from '../../../types/contribution.types';
 import { useColors } from '../../../hooks/useColors';
 import { useLocalizedField } from '../../../hooks/useLocalizedField';
-import { ColorScheme } from '../../../constants/colors';
-import { Spacing, BorderRadius } from '../../../constants/typography';
 import { updateQuestion, deleteQuestion } from '../../../services/api/questions';
 import { getAccessToken } from '../../../services/api/client';
 
-interface AnswerOption {
-  id?: number;
-  text: string;
-  isCorrect: boolean;
+interface AnswerOption { id?: number; text: string; isCorrect: boolean; }
+
+// ─── reuse chip/section/answerRow components from add-question ──────────────
+// (inline them here since they're in the same design system)
+
+function SectionCard({
+  title, icon, iconColor, colors, children,
+}: {
+  title: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  iconColor: string;
+  colors: ReturnType<typeof useColors>;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={[cardSt.card, { backgroundColor: colors.surface }]}>
+      <View style={cardSt.header}>
+        <View style={[cardSt.iconWrap, { backgroundColor: iconColor + '15' }]}>
+          <MaterialCommunityIcons name={icon} size={16} color={iconColor} />
+        </View>
+        <Text style={[cardSt.title, { color: colors.textPrimary }]}>{title}</Text>
+      </View>
+      {children}
+    </View>
+  );
 }
 
+const cardSt = StyleSheet.create({
+  card: { borderRadius: 16, padding: 16, marginBottom: 14, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  iconWrap: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 14, fontWeight: '700' },
+});
+
+function AnswerRow({
+  index, answer, onChange, onSetCorrect, colors, t, disabled,
+}: {
+  index: number; answer: AnswerOption;
+  onChange: (text: string) => void; onSetCorrect: () => void;
+  colors: ReturnType<typeof useColors>; t: (k: string, o?: any) => string; disabled?: boolean;
+}) {
+  const label = String.fromCharCode(65 + index);
+  return (
+    <View style={[
+      arSt.row,
+      { backgroundColor: answer.isCorrect ? colors.success + '08' : colors.surface, borderColor: answer.isCorrect ? colors.success : colors.border },
+    ]}>
+      <TouchableOpacity
+        style={[arSt.selector, { backgroundColor: answer.isCorrect ? colors.success : colors.surfaceVariant, borderColor: answer.isCorrect ? colors.success : colors.border }]}
+        onPress={onSetCorrect} disabled={disabled}
+      >
+        {answer.isCorrect
+          ? <MaterialCommunityIcons name="check" size={14} color="#fff" />
+          : <Text style={[arSt.selectorLabel, { color: colors.textSecondary }]}>{label}</Text>}
+      </TouchableOpacity>
+      <TextInput
+        mode="flat" placeholder={t('contribute.answerOption', { option: label })}
+        value={answer.text} onChangeText={onChange}
+        style={[arSt.input, { backgroundColor: 'transparent' }]}
+        underlineColor="transparent" activeUnderlineColor="transparent"
+        disabled={disabled} dense
+      />
+    </View>
+  );
+}
+
+const arSt = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 1.5, paddingRight: 12, marginBottom: 8, overflow: 'hidden' },
+  selector: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center', borderRightWidth: 1.5, borderRightColor: 'inherit', marginRight: 4 },
+  selectorLabel: { fontSize: 13, fontWeight: '800' },
+  input: { flex: 1, fontSize: 14 },
+});
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function EditContributionScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const colors = useColors();
   const lf = useLocalizedField();
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { questionId } = useLocalSearchParams<{ questionId: string }>();
-  
+
   const { data: contribution, status: contributionStatus } = useApi<Contribution>(
     questionId ? `/api/contributions/${questionId}/` : ''
   );
-
   const { data: question, status: questionStatus } = useApi<Question>(
     contribution?.question ? `/api/questions/${contribution.question}/` : '',
     !contribution?.question
   );
-
   const { data: branches } = usePaginatedApi<Branch>('/api/branches/');
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [selectedSubBranch, setSelectedSubBranch] = useState<number | null>(null);
@@ -53,45 +119,42 @@ export default function EditContributionScreen() {
   const [questionText, setQuestionText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [answers, setAnswers] = useState<AnswerOption[]>([
-    { text: '', isCorrect: true },
-    { text: '', isCorrect: false },
-    { text: '', isCorrect: false },
-    { text: '', isCorrect: false },
+    { text: '', isCorrect: true }, { text: '', isCorrect: false },
+    { text: '', isCorrect: false }, { text: '', isCorrect: false },
   ]);
   const [explanation, setExplanation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Populate form when question data loads
-  useEffect(() => {
-    if (question) {
-      setQuestionText(question.question_text_en);
-      setSelectedCategory(question.category);
-      setExplanation(question.explanation_en || '');
-      if (question.answers && question.answers.length > 0) {
-        setAnswers(question.answers.map((a: AnswerOptionType) => ({
-          id: a.id,
-          text: a.answer_text_en,
-          isCorrect: a.is_correct,
-        })));
-      }
-    }
-  }, [question]);
+ useEffect(() => {
+  if (!question) return;
 
-  // Auto-select first branch when branches load so categories populate
+  setQuestionText(question.question_text_en ?? "");
+  setSelectedCategory(question.category ?? "");
+  setExplanation(question.explanation_en ?? "");
+
+  const answersArray: AnswerOptionType[] = question.answers ?? [];
+
+  if (answersArray.length > 0) {
+    setAnswers(
+      answersArray.map((a) => ({
+        id: a.id,
+        text: a.answer_text_en ?? "",
+        isCorrect: a.is_correct ?? false,
+      }))
+    );
+  } else {
+    setAnswers([]); // prevent undefined state
+  }
+}, [question]);
+
   useEffect(() => {
-    if (branches && branches.length > 0 && !selectedBranch) {
-      setSelectedBranch(branches[0]);
-    }
+    if (branches?.length && !selectedBranch) setSelectedBranch(branches[0]);
   }, [branches, selectedBranch]);
 
-  // Refetch categories when branch or sub-branch changes
   useEffect(() => {
-    if (selectedBranch) {
-      fetchCategories();
-    }
+    if (selectedBranch) fetchCategories();
   }, [selectedBranch?.id, selectedSubBranch, fetchCategories, selectedBranch]);
 
-  // Group categories by scope
   const groupedCategories = React.useMemo(() => {
     if (!categories) return { universal: [] as Category[], branch: [] as Category[], subbranch: [] as Category[] };
     return {
@@ -101,53 +164,32 @@ export default function EditContributionScreen() {
     };
   }, [categories]);
 
-  const updateAnswer = (index: number, text: string) => {
-    const newAnswers = [...answers];
-    newAnswers[index].text = text;
-    setAnswers(newAnswers);
+  const setCorrectAnswer = (i: number) => {
+    setAnswers(answers.map((a, idx) => ({ ...a, isCorrect: idx === i })));
   };
-
-  const setCorrectAnswer = (index: number) => {
-    const newAnswers = answers.map((a, i) => ({ ...a, isCorrect: i === index }));
-    setAnswers(newAnswers);
+  const updateAnswer = (i: number, text: string) => {
+    const a = [...answers]; a[i].text = text; setAnswers(a);
   };
 
   const handleSubmit = async () => {
-    if (!questionText.trim()) {
-      Alert.alert(t('contribute.missingQuestionTitle'), t('contribute.missingQuestionMessage'));
-      return;
-    }
-    if (!selectedCategory) {
-      Alert.alert(t('contribute.missingCategoryTitle'), t('contribute.missingCategoryMessage'));
-      return;
-    }
-    if (answers.some((a) => !a.text.trim())) {
-      Alert.alert(t('contribute.missingAnswersTitle'), t('contribute.missingAnswersMessage'));
-      return;
-    }
-    
-    setIsSubmitting(true);
+    if (!questionText.trim()) return Alert.alert(t('contribute.missingQuestionTitle'), t('contribute.missingQuestionMessage'));
+    if (!selectedCategory) return Alert.alert(t('contribute.missingCategoryTitle'), t('contribute.missingCategoryMessage'));
+    if (answers.some(a => !a.text.trim())) return Alert.alert(t('contribute.missingAnswersTitle'), t('contribute.missingAnswersMessage'));
 
+    setIsSubmitting(true);
     try {
       const token = getAccessToken();
-      await updateQuestion(
-        question!.id,
-        {
-          question_text_en: questionText,
-          category: selectedCategory!,
-          explanation_en: explanation,
-          answers: answers.map((a, i) => ({
-            id: a.id,
-            answer_text_en: a.text,
-            answer_text_np: a.text,
-            is_correct: a.isCorrect,
-            display_order: i,
-          })),
-        },
-        token
-      );
+      await updateQuestion(question!.id, {
+        question_text_en: questionText,
+        category: selectedCategory!,
+        explanation_en: explanation,
+        answers: answers.map((a, i) => ({
+          id: a.id, answer_text_en: a.text, answer_text_np: a.text,
+          is_correct: a.isCorrect, display_order: i,
+        })),
+      }, token);
       Alert.alert(t('common.success'), t('contribute.updatedResubmitted'), [
-        { text: t('common.ok'), onPress: () => router.back() }
+        { text: t('common.ok'), onPress: () => router.back() },
       ]);
     } catch (err) {
       Alert.alert(t('common.error'), err instanceof Error ? err.message : t('contribute.updateFailed'));
@@ -157,297 +199,235 @@ export default function EditContributionScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      t('contribute.deleteTitle'),
-      t('contribute.deleteConfirm'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const token = getAccessToken();
-              await deleteQuestion(question!.id, token);
-              router.back();
-            } catch (err) {
-              Alert.alert(t('common.error'), err instanceof Error ? err.message : t('contribute.deleteFailed'));
-            }
+    Alert.alert(t('contribute.deleteTitle'), t('contribute.deleteConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'), style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteQuestion(question!.id, getAccessToken());
+            router.back();
+          } catch (err) {
+            Alert.alert(t('common.error'), err instanceof Error ? err.message : t('contribute.deleteFailed'));
           }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const isLoading = contributionStatus === 'loading' || questionStatus === 'loading';
   const isPending = contribution?.status === 'PENDING';
   const isRejected = contribution?.status === 'REJECTED';
+  const isApproved = !isPending && !isRejected;
   const canEdit = isPending || isRejected;
-  const statusLabel = contribution?.status === 'REJECTED'
-    ? t('contribute.statusRejected')
-    : contribution?.status === 'PENDING'
-      ? t('contribute.statusPending')
-      : t('contribute.statusApproved');
+
+  const statusMeta = isRejected
+    ? { color: colors.error, icon: 'close-circle' as const, label: 'Rejected', bg: colors.error + '10' }
+    : isPending
+    ? { color: colors.warning, icon: 'clock-outline' as const, label: 'Under Review', bg: colors.warning + '10' }
+    : { color: colors.success, icon: 'check-circle' as const, label: 'Approved', bg: colors.success + '10' };
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loaderContainer}>
+      <SafeAreaView style={[styles.centered, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
+
+        {/* ── Top bar ── */}
+        <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <TouchableOpacity
+            style={[styles.backBtn, { backgroundColor: colors.surfaceVariant }]}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t('contribute.editQuestion')}</Text>
-          <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
-            <MaterialCommunityIcons name="delete" size={20} color={colors.error} />
-          </TouchableOpacity>
+          <Text style={[styles.topBarTitle, { color: colors.textPrimary }]}>
+            {t('contribute.editQuestion')}
+          </Text>
+          {canEdit ? (
+            <TouchableOpacity
+              style={[styles.deleteBtn, { backgroundColor: colors.error + '15' }]}
+              onPress={handleDelete}
+            >
+              <MaterialCommunityIcons name="delete-outline" size={18} color={colors.error} />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 36 }} />
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Status Banner */}
+
+          {/* ── Status banner ── */}
           {contribution && (
-            <Card style={[
-              styles.statusBanner,
-              { 
-                backgroundColor: isRejected ? colors.errorLight : 
-                  isPending ? colors.warningLight : colors.successLight 
-              }
-            ]}>
-              <Card.Content style={styles.statusContent}>
-                <MaterialCommunityIcons 
-                  name={isRejected ? 'alert-circle' : isPending ? 'clock-outline' : 'check-circle'} 
-                  size={24} 
-                  color={isRejected ? colors.error : isPending ? colors.warning : colors.success} 
-                />
-                <View style={styles.statusTextContainer}>
-                  <Text style={[
-                    styles.statusTitle,
-                    { color: isRejected ? colors.error : isPending ? colors.warning : colors.success }
-                  ]}>
-                    {statusLabel}
+            <View style={[styles.statusBanner, { backgroundColor: statusMeta.bg, borderColor: statusMeta.color + '30' }]}>
+              <View style={[styles.statusIconWrap, { backgroundColor: statusMeta.color + '20' }]}>
+                <MaterialCommunityIcons name={statusMeta.icon} size={20} color={statusMeta.color} />
+              </View>
+              <View style={styles.statusText}>
+                <Text style={[styles.statusLabel, { color: statusMeta.color }]}>
+                  {statusMeta.label}
+                </Text>
+                {isRejected && contribution.rejection_reason && (
+                  <Text style={[styles.statusReason, { color: colors.textSecondary }]}>
+                    {contribution.rejection_reason}
                   </Text>
-                  {isRejected && contribution.rejection_reason && (
-                    <Text style={styles.rejectionReason}>{contribution.rejection_reason}</Text>
-                  )}
-                  {!canEdit && (
-                    <Text style={styles.statusNote}>{t('contribute.editNotAllowed')}</Text>
-                  )}
-                </View>
-              </Card.Content>
-            </Card>
+                )}
+                {isApproved && (
+                  <Text style={[styles.statusReason, { color: colors.textSecondary }]}>
+                    {t('contribute.editNotAllowed')}
+                  </Text>
+                )}
+                {isPending && (
+                  <Text style={[styles.statusReason, { color: colors.textSecondary }]}>
+                    Your question is being reviewed by our team.
+                  </Text>
+                )}
+              </View>
+            </View>
           )}
 
-          {/* Branch Selection */}
-          <Card style={styles.card}>
-            <Card.Content>
-              <Text style={styles.inputLabel}>{t('contribute.selectBranch')}</Text>
-              <View style={styles.chipRow}>
-                {branches?.map((branch) => (
-                  <Chip
+          {/* ── Branch selection ── */}
+          <SectionCard title={t('contribute.selectBranch')} icon="source-branch" iconColor={colors.primary} colors={colors}>
+            <View style={chipSt.row}>
+              {branches?.map(branch => {
+                const active = selectedBranch?.id === branch.id;
+                return (
+                  <TouchableOpacity
                     key={branch.id}
-                    selected={selectedBranch?.id === branch.id}
+                    style={[chipSt.chip, {
+                      backgroundColor: active ? colors.primary + '15' : colors.surfaceVariant,
+                      borderColor: active ? colors.primary : 'transparent',
+                      opacity: canEdit ? 1 : 0.6,
+                    }]}
                     onPress={() => {
                       if (!canEdit) return;
                       setSelectedBranch(branch);
                       setSelectedSubBranch(null);
                       setSelectedCategory(null);
                     }}
-                    style={styles.chip}
-                    selectedColor={colors.primary}
-                    disabled={!canEdit}
                   >
-                    {lf(branch.name_en, branch.name_np)}
-                  </Chip>
-                ))}
-              </View>
+                    <Text style={[chipSt.text, { color: active ? colors.primary : colors.textSecondary }]}>
+                      {lf(branch.name_en, branch.name_np)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </SectionCard>
 
-              {/* Sub-branch selection */}
-              {selectedBranch?.has_sub_branches && (selectedBranch.sub_branches?.length ?? 0) > 0 && (
-                <>
-                  <Text style={[styles.inputLabel, { marginTop: Spacing.md }]}>
-                    {t('contribute.selectSubBranch', { defaultValue: 'Sub-Branch (optional)' })}
-                  </Text>
-                  <View style={styles.chipRow}>
-                    <Chip
-                      selected={selectedSubBranch === null}
-                      onPress={() => { if (canEdit) { setSelectedSubBranch(null); setSelectedCategory(null); } }}
-                      style={styles.chip}
-                      selectedColor={colors.primary}
-                      disabled={!canEdit}
-                    >
-                      {t('common.allTests', { defaultValue: 'All' })}
-                    </Chip>
-                    {selectedBranch.sub_branches?.map((sb) => (
-                      <Chip
-                        key={sb.id}
-                        selected={selectedSubBranch === sb.id}
-                        onPress={() => { if (canEdit) { setSelectedSubBranch(sb.id); setSelectedCategory(null); } }}
-                        style={styles.chip}
-                        selectedColor={colors.primary}
-                        disabled={!canEdit}
-                      >
-                        {lf(sb.name_en, sb.name_np)}
-                      </Chip>
-                    ))}
-                  </View>
-                </>
-              )}
-            </Card.Content>
-          </Card>
-
-          {/* Category Selection — grouped by scope */}
+          {/* ── Category ── */}
           {selectedBranch && (
-            <Card style={styles.card}>
-              <Card.Content>
-                <Text style={styles.inputLabel}>{t('contribute.selectCategory')}</Text>
-                {categoryStatus === 'loading' ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <View>
-                    {groupedCategories.universal.length > 0 && (
-                      <>
-                        <Text style={[styles.inputHint, { fontWeight: '600', color: colors.info }]}>
-                          {t('practice.universalSubjects', { defaultValue: 'Common Subjects' })}
-                        </Text>
-                        <View style={styles.chipRow}>
-                          {groupedCategories.universal.map((cat) => (
-                            <Chip key={cat.id} selected={selectedCategory === cat.id} onPress={() => canEdit && setSelectedCategory(cat.id)} style={styles.chip} selectedColor={colors.info} disabled={!canEdit}>
-                              {lf(cat.name_en, cat.name_np)}
-                            </Chip>
-                          ))}
-                        </View>
-                      </>
-                    )}
-                    {groupedCategories.branch.length > 0 && (
-                      <>
-                        <Text style={[styles.inputHint, { fontWeight: '600', color: colors.accent, marginTop: Spacing.sm }]}>
-                          {t('practice.branchSubjects', { defaultValue: 'Service Specific' })}
-                        </Text>
-                        <View style={styles.chipRow}>
-                          {groupedCategories.branch.map((cat) => (
-                            <Chip key={cat.id} selected={selectedCategory === cat.id} onPress={() => canEdit && setSelectedCategory(cat.id)} style={styles.chip} selectedColor={colors.accent} disabled={!canEdit}>
-                              {lf(cat.name_en, cat.name_np)}
-                            </Chip>
-                          ))}
-                        </View>
-                      </>
-                    )}
-                    {groupedCategories.subbranch.length > 0 && (
-                      <>
-                        <Text style={[styles.inputHint, { fontWeight: '600', color: colors.secondary, marginTop: Spacing.sm }]}>
-                          {t('practice.subBranchSubjects', { defaultValue: 'Specialization' })}
-                        </Text>
-                        <View style={styles.chipRow}>
-                          {groupedCategories.subbranch.map((cat) => (
-                            <Chip key={cat.id} selected={selectedCategory === cat.id} onPress={() => canEdit && setSelectedCategory(cat.id)} style={styles.chip} selectedColor={colors.secondary} disabled={!canEdit}>
-                              {lf(cat.name_en, cat.name_np)}
-                            </Chip>
-                          ))}
-                        </View>
-                      </>
-                    )}
-                    {categories && categories.length === 0 && (
-                      <Text style={styles.inputHint}>{t('practice.noCategories', { defaultValue: 'No categories available' })}</Text>
-                    )}
-                  </View>
-                )}
-              </Card.Content>
-            </Card>
+            <SectionCard title={t('contribute.selectCategory')} icon="tag-outline" iconColor={colors.accent} colors={colors}>
+              {categoryStatus === 'loading' ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <View style={{ gap: 10 }}>
+                  {[
+                    { items: groupedCategories.universal, color: colors.info, label: 'Common Subjects' },
+                    { items: groupedCategories.branch, color: colors.accent, label: 'Service Specific' },
+                    { items: groupedCategories.subbranch, color: colors.secondary, label: 'Specialization' },
+                  ].filter(g => g.items.length > 0).map((group, gi) => (
+                    <View key={gi}>
+                      <Text style={[styles.catLabel, { color: group.color }]}>{group.label}</Text>
+                      <View style={chipSt.row}>
+                        {group.items.map(cat => {
+                          const active = selectedCategory === cat.id;
+                          return (
+                            <TouchableOpacity
+                              key={cat.id}
+                              style={[chipSt.chip, {
+                                backgroundColor: active ? group.color + '15' : colors.surfaceVariant,
+                                borderColor: active ? group.color : 'transparent',
+                                opacity: canEdit ? 1 : 0.6,
+                              }]}
+                              onPress={() => canEdit && setSelectedCategory(cat.id)}
+                            >
+                              <Text style={[chipSt.text, { color: active ? group.color : colors.textSecondary }]}>
+                                {lf(cat.name_en, cat.name_np)}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </SectionCard>
           )}
 
-          {/* Question Text */}
-          <Card style={styles.card}>
-            <Card.Content>
-              <Text style={styles.inputLabel}>{t('contribute.questionText')}</Text>
-              <TextInput 
-                mode="outlined" 
-                placeholder={t('contribute.questionPlaceholderEn')}
-                value={questionText} 
-                onChangeText={setQuestionText} 
-                multiline 
-                numberOfLines={4} 
-                style={styles.textArea} 
-                outlineColor={colors.border} 
-                activeOutlineColor={colors.primary}
-                disabled={!canEdit}
-              />
-            </Card.Content>
-          </Card>
+          {/* ── Question text ── */}
+          <SectionCard title={t('contribute.questionText')} icon="help-circle-outline" iconColor={colors.primary} colors={colors}>
+            <TextInput
+              mode="outlined"
+              placeholder={t('contribute.questionPlaceholderEn')}
+              value={questionText}
+              onChangeText={setQuestionText}
+              multiline numberOfLines={4}
+              style={[styles.textArea, { backgroundColor: colors.surface }]}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              disabled={!canEdit}
+            />
+          </SectionCard>
 
-          {/* Answer Options */}
-          <Card style={styles.card}>
-            <Card.Content>
-              <Text style={styles.inputLabel}>{t('contribute.answerOptions')}</Text>
-              <Text style={styles.inputHint}>{t('contribute.answerHint')}</Text>
-              {answers.map((answer, index) => (
-                <View key={index} style={styles.answerRow}>
-                  <RadioButton 
-                    value={String(index)} 
-                    status={answer.isCorrect ? 'checked' : 'unchecked'} 
-                    onPress={() => canEdit && setCorrectAnswer(index)} 
-                    color={colors.success}
-                    disabled={!canEdit}
-                  />
-                  <TextInput 
-                    mode="outlined" 
-                    placeholder={t('contribute.answerOption', { option: String.fromCharCode(65 + index) })}
-                    value={answer.text} 
-                    onChangeText={(text) => updateAnswer(index, text)} 
-                    style={styles.answerInput} 
-                    outlineColor={answer.isCorrect ? colors.success : colors.border} 
-                    activeOutlineColor={answer.isCorrect ? colors.success : colors.primary} 
-                    dense
-                    disabled={!canEdit}
-                  />
-                </View>
-              ))}
-            </Card.Content>
-          </Card>
-
-          {/* Explanation */}
-          <Card style={styles.card}>
-            <Card.Content>
-              <Text style={styles.inputLabel}>{t('contribute.explanationOptional')}</Text>
-              <TextInput 
-                mode="outlined" 
-                placeholder={t('contribute.explanationPlaceholder')}
-                value={explanation} 
-                onChangeText={setExplanation} 
-                multiline 
-                numberOfLines={3} 
-                style={styles.textArea} 
-                outlineColor={colors.border} 
-                activeOutlineColor={colors.primary}
-                disabled={!canEdit}
+          {/* ── Answers ── */}
+          <SectionCard title={t('contribute.answerOptions')} icon="format-list-bulleted" iconColor={colors.success} colors={colors}>
+            <Text style={[styles.hint, { color: colors.textSecondary }]}>
+              {t('contribute.answerHint')}
+            </Text>
+            {answers.map((answer, i) => (
+              <AnswerRow
+                key={i} index={i} answer={answer}
+                onChange={text => updateAnswer(i, text)}
+                onSetCorrect={() => setCorrectAnswer(i)}
+                colors={colors} t={t} disabled={!canEdit}
               />
-            </Card.Content>
-          </Card>
+            ))}
+          </SectionCard>
+
+          {/* ── Explanation ── */}
+          <SectionCard title={`${t('contribute.explanationOptional')} (optional)`} icon="lightbulb-outline" iconColor={colors.warning} colors={colors}>
+            <TextInput
+              mode="outlined"
+              placeholder={t('contribute.explanationPlaceholder')}
+              value={explanation}
+              onChangeText={setExplanation}
+              multiline numberOfLines={3}
+              style={[styles.textArea, { backgroundColor: colors.surface }]}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              disabled={!canEdit}
+            />
+          </SectionCard>
+
         </ScrollView>
 
-        {/* Submit Button */}
+        {/* ── Submit bar ── */}
         {canEdit && (
-          <View style={styles.bottomAction}>
-            <Button 
-              mode="contained" 
-              icon="send" 
-              style={styles.submitButton} 
-              contentStyle={styles.submitButtonContent} 
-              labelStyle={styles.submitButtonLabel} 
-              onPress={handleSubmit} 
-              loading={isSubmitting} 
+          <View style={[styles.submitBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.submitBtn, { backgroundColor: isSubmitting ? colors.primary + '60' : colors.primary }]}
+              onPress={handleSubmit}
               disabled={isSubmitting}
+              activeOpacity={0.85}
             >
-              {t('contribute.resubmitForReview')}
-            </Button>
+              {isSubmitting
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <MaterialCommunityIcons name="send" size={18} color="#fff" />
+              }
+              <Text style={styles.submitBtnText}>
+                {t('contribute.resubmitForReview')}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
       </KeyboardAvoidingView>
@@ -455,45 +435,41 @@ export default function EditContributionScreen() {
   );
 }
 
-const createStyles = (colors: ColorScheme) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.base },
-  backButton: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    backgroundColor: colors.cardBackground, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    elevation: 2,
+const chipSt = StyleSheet.create({
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5 },
+  text: { fontSize: 13, fontWeight: '600' },
+});
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
-  deleteButton: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    backgroundColor: colors.errorLight, 
-    alignItems: 'center', 
-    justifyContent: 'center',
+  backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  topBarTitle: { fontSize: 17, fontWeight: '700' },
+  deleteBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  scrollContent: { padding: 16, paddingBottom: 24 },
+
+  // Status banner
+  statusBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    borderRadius: 14, padding: 14, borderWidth: 1, marginBottom: 14,
   },
-  scrollContent: { padding: Spacing.base, paddingBottom: 100 },
-  statusBanner: { borderRadius: BorderRadius.lg, marginBottom: Spacing.lg },
-  statusContent: { flexDirection: 'row', alignItems: 'flex-start' },
-  statusTextContainer: { flex: 1, marginLeft: Spacing.md },
-  statusTitle: { fontSize: 16, fontWeight: '700' },
-  rejectionReason: { fontSize: 14, color: colors.textSecondary, marginTop: Spacing.xs },
-  statusNote: { fontSize: 13, color: colors.textSecondary, marginTop: Spacing.xs },
-  card: { backgroundColor: colors.cardBackground, borderRadius: BorderRadius.xl, marginBottom: Spacing.lg, elevation: 2 },
-  inputLabel: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: Spacing.sm },
-  inputHint: { fontSize: 12, color: colors.textSecondary, marginBottom: Spacing.md },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  chip: { marginBottom: Spacing.xs },
-  textArea: { backgroundColor: colors.cardBackground },
-  answerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
-  answerInput: { flex: 1, backgroundColor: colors.cardBackground },
-  bottomAction: { backgroundColor: colors.cardBackground, padding: Spacing.base, borderTopWidth: 1, borderTopColor: colors.border },
-  submitButton: { borderRadius: BorderRadius.lg },
-  submitButtonContent: { paddingVertical: Spacing.sm },
-  submitButtonLabel: { fontSize: 16, fontWeight: '700' },
+  statusIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  statusText: { flex: 1 },
+  statusLabel: { fontSize: 14, fontWeight: '700', marginBottom: 3 },
+  statusReason: { fontSize: 13, lineHeight: 19 },
+
+  catLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginBottom: 7 },
+  textArea: { fontSize: 14 },
+  hint: { fontSize: 12, marginBottom: 10 },
+  submitBar: { padding: 14, borderTopWidth: StyleSheet.hairlineWidth },
+  submitBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 15, borderRadius: 14,
+  },
+  submitBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
 });
