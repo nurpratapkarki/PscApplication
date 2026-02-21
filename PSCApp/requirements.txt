@@ -16,3 +16,6 @@ django-filter>=23.5
 dj-rest-auth[with-social]>=5.0.2
 django-allauth>=0.57.2
 faker>=22.0.0
+openpyxl>=3.1.0
+xlrd>=2.0.1
+pypdf>=5.0.0

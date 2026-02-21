@@ -327,6 +327,7 @@
     "subtitle": "प्रश्न बैंक बढाउन मद्दत गर्नुहोस्",
     "addQuestion": "प्रश्न थप्नुहोस्",
     "myContributions": "मेरो योगदान",
+    "answerOption": "उत्तर विकल्प {{option}}",
     "myContributionsSubtitle": "तपाईंका योगदान गरिएका प्रश्नहरू ट्र्याक गर्नुहोस्",
     "editQuestion": "प्रश्न सम्पादन",
     "questionText": "प्रश्न पाठ",

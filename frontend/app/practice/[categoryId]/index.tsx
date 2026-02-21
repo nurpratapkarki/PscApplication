@@ -6,12 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../../hooks/useApi';
-import { usePaginatedApi } from '../../../hooks/usePaginatedApi';
 import { useColors } from '../../../hooks/useColors';
 import { useLocalizedField } from '../../../hooks/useLocalizedField';
 import { Category } from '../../../types/category.types';
-import { Question } from '../../../types/question.types';
 import { cacheQuestions, getCachedCategoryInfo, clearCategoryCache, CachedCategoryInfo } from '../../../services/questionCache';
+import { downloadCategoryQuestions } from '../../../services/offlineQuestions';
 import { ColorScheme } from '../../../constants/colors';
 import { Spacing, BorderRadius } from '../../../constants/typography';
 
@@ -36,8 +35,6 @@ const PracticeSetupScreen = () => {
   const [cacheInfo, setCacheInfo] = useState<CachedCategoryInfo | null>(null);
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'downloading' | 'done' | 'error'>('idle');
 
-  const { execute: fetchForDownload } = usePaginatedApi<Question>('/api/questions/', true);
-
   // Check cache status on mount
   useEffect(() => {
     if (!categoryId) return;
@@ -45,21 +42,22 @@ const PracticeSetupScreen = () => {
   }, [categoryId]);
 
   const handleDownload = useCallback(async () => {
-    if (!categoryId || !category) return;
+    if (!categoryId) return;
     setDownloadStatus('downloading');
     try {
-      const res = await fetchForDownload(`?category=${categoryId}&page_size=200`);
-      if (res?.results) {
-        const name = lf(category.name_en, category.name_np);
-        await cacheQuestions(Number(categoryId), name, res.results);
-        const info = await getCachedCategoryInfo(Number(categoryId));
-        setCacheInfo(info);
-        setDownloadStatus('done');
-      }
+      const questions = await downloadCategoryQuestions(Number(categoryId));
+      const categoryName = category
+        ? lf(category.name_en, category.name_np)
+        : cacheInfo?.categoryName ?? `Category ${categoryId}`;
+
+      await cacheQuestions(Number(categoryId), categoryName, questions);
+      const info = await getCachedCategoryInfo(Number(categoryId));
+      setCacheInfo(info);
+      setDownloadStatus('done');
     } catch {
       setDownloadStatus('error');
     }
-  }, [categoryId, category, fetchForDownload, lf]);
+  }, [categoryId, category, cacheInfo?.categoryName, lf]);
 
   const handleRemoveDownload = useCallback(async () => {
     if (!categoryId) return;
@@ -73,13 +71,17 @@ const PracticeSetupScreen = () => {
 
   const handleStartPractice = () => {
     if (!categoryId || !isValid) return;
+    const offlineCategoryName = category
+      ? lf(category.name_en, category.name_np)
+      : cacheInfo?.categoryName ?? `Category ${categoryId}`;
+
     router.push({
       pathname: `/practice/[categoryId]/question`,
-      params: { categoryId, count: numberOfQuestions },
+      params: { categoryId, count: numberOfQuestions, categoryName: offlineCategoryName },
     });
   };
 
-  if (status === 'loading') {
+  if (status === 'loading' && !cacheInfo) {
     return (
       <SafeAreaView style={styles.loaderContainer}>
         <ActivityIndicator animating={true} size="large" color={colors.primary} />
@@ -88,7 +90,7 @@ const PracticeSetupScreen = () => {
     );
   }
 
-  if (status === 'error' || !category) {
+  if (!category && !cacheInfo) {
     return (
       <SafeAreaView style={styles.errorContainer}>
         <Stack.Screen options={{ title: t('common.error') }} />
@@ -99,8 +101,12 @@ const PracticeSetupScreen = () => {
     );
   }
 
-  const localizedName = lf(category.name_en, category.name_np);
-  const secondaryName = i18n.language === 'NP' ? category.name_en : category.name_np;
+  const localizedName = category
+    ? lf(category.name_en, category.name_np)
+    : cacheInfo?.categoryName ?? `Category ${categoryId}`;
+  const secondaryName = category
+    ? (i18n.language === 'NP' ? category.name_en : category.name_np)
+    : '';
 
   return (
     <SafeAreaView style={styles.container}>

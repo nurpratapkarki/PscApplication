@@ -1,10 +1,13 @@
+import json
 from uuid import uuid4
 
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
+from src.models.analytics import Contribution
 from src.models.branch import Category
 from src.models.question_answer import Question
 
@@ -127,3 +130,62 @@ class QuestionApiTests(APITestCase):
         response = self.client.post(url)
         # Should be 404 because user can't see DRAFT/Other questions in queryset
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_bulk_upload_creates_contribution_records(self):
+        bulk_url = reverse("question-bulk-upload")
+        answers = json.dumps(
+            [
+                {
+                    "answer_text_en": "Kathmandu",
+                    "answer_text_np": "काठमाडौं",
+                    "is_correct": True,
+                },
+                {
+                    "answer_text_en": "Pokhara",
+                    "answer_text_np": "पोखरा",
+                    "is_correct": False,
+                },
+                {
+                    "answer_text_en": "Lalitpur",
+                    "answer_text_np": "ललितपुर",
+                    "is_correct": False,
+                },
+                {
+                    "answer_text_en": "Bhaktapur",
+                    "answer_text_np": "भक्तपुर",
+                    "is_correct": False,
+                },
+            ]
+        )
+        csv_content = (
+            "question_text_en,question_text_np,explanation_en,explanation_np,"
+            "difficulty_level,answers\n"
+            "\"What is the capital of Nepal?\",\"नेपालको राजधानी कहाँ हो?\","
+            "\"Kathmandu is the capital.\",\"काठमाडौं राजधानी हो।\","
+            "\"EASY\",\""
+            + answers.replace('"', '""')
+            + "\"\n"
+        )
+        upload = SimpleUploadedFile(
+            "questions.csv",
+            csv_content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+        response = self.client.post(
+            bulk_url,
+            {"file": upload, "category": self.category.id},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["uploaded_count"], 1)
+        self.assertEqual(response.data["failed_count"], 0)
+
+        question = Question.objects.get(question_text_en="What is the capital of Nepal?")
+        self.assertEqual(question.answers.count(), 4)
+        self.assertTrue(
+            Contribution.objects.filter(user=self.user, question=question).exists()
+        )
+
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.total_contributions, 1)

@@ -127,6 +127,8 @@ export function clearAllApiCache(): void {
 const Q_CACHE_PREFIX = 'question_cache:';
 const Q_CACHE_INDEX = 'question_cache_index';
 const Q_CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const OFFLINE_TEST_CACHE_INDEX = 'offline_mock_test_index';
+const OFFLINE_TEST_CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year
 
 interface QCachedData {
   questions: unknown[];
@@ -139,6 +141,15 @@ export interface CachedCategoryInfo {
   categoryId: number;
   categoryName: string;
   questionCount: number;
+  cachedAt: number;
+}
+
+export interface CachedMockTestInfo {
+  testId: number;
+  titleEn: string;
+  titleNp?: string;
+  totalQuestions: number;
+  durationMinutes?: number | null;
   cachedAt: number;
 }
 
@@ -238,35 +249,171 @@ export function clearAllQuestionCacheMMKV(): void {
   appStorage.remove(Q_CACHE_INDEX);
 }
 
+function getOfflineMockTestIndex(): Record<number, CachedMockTestInfo> {
+  const raw = appStorage.getString(OFFLINE_TEST_CACHE_INDEX);
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+/** Cache a full mock-test detail payload for offline use */
+export function cacheMockTestMMKV(
+  testId: number,
+  detailData: unknown,
+  info: Omit<CachedMockTestInfo, 'testId' | 'cachedAt'>,
+): void {
+  const endpoint = `/api/mock-tests/${testId}/`;
+  cacheApiResponse(endpoint, detailData, OFFLINE_TEST_CACHE_TTL);
+
+  const index = getOfflineMockTestIndex();
+  index[testId] = {
+    testId,
+    titleEn: info.titleEn,
+    titleNp: info.titleNp,
+    totalQuestions: info.totalQuestions,
+    durationMinutes: info.durationMinutes,
+    cachedAt: Date.now(),
+  };
+  appStorage.set(OFFLINE_TEST_CACHE_INDEX, JSON.stringify(index));
+}
+
+/** List downloaded mock tests; removes stale index entries automatically */
+export function getCachedMockTestsMMKV(): CachedMockTestInfo[] {
+  const index = getOfflineMockTestIndex();
+  const result: CachedMockTestInfo[] = [];
+  let changed = false;
+
+  for (const [id, info] of Object.entries(index)) {
+    const endpoint = `/api/mock-tests/${id}/`;
+    const cached = getCachedApiResponse(endpoint, true);
+    if (cached) {
+      result.push(info);
+    } else {
+      delete index[Number(id)];
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    appStorage.set(OFFLINE_TEST_CACHE_INDEX, JSON.stringify(index));
+  }
+
+  return result.sort((a, b) => b.cachedAt - a.cachedAt);
+}
+
+/** Remove one downloaded mock test */
+export function clearMockTestCacheMMKV(testId: number): void {
+  removeCachedApiResponse(`/api/mock-tests/${testId}/`);
+  const index = getOfflineMockTestIndex();
+  delete index[testId];
+  appStorage.set(OFFLINE_TEST_CACHE_INDEX, JSON.stringify(index));
+}
+
+/** Remove all downloaded mock tests */
+export function clearAllMockTestCacheMMKV(): void {
+  const index = getOfflineMockTestIndex();
+  for (const id of Object.keys(index)) {
+    removeCachedApiResponse(`/api/mock-tests/${id}/`);
+  }
+  appStorage.remove(OFFLINE_TEST_CACHE_INDEX);
+}
+
 // ── Pending operations queue (for offline submissions) ─────────────────────
 
 const PENDING_OPS_KEY = 'pending_operations';
 
-export interface PendingOperation {
+export interface OfflineMockTestAnswerPayload {
+  question: number;
+  selected_answer: number | null;
+  time_taken_seconds: number;
+  is_skipped: boolean;
+  is_marked_for_review: boolean;
+}
+
+interface PendingOperationBase {
+  id: string;
+  createdAt: number;
+}
+
+export interface ApiPendingOperation extends PendingOperationBase {
+  type: 'API_REQUEST';
+  endpoint: string;
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  body: unknown;
+}
+
+export interface MockTestSubmissionPendingOperation extends PendingOperationBase {
+  type: 'MOCK_TEST_SUBMISSION';
+  mockTestId: number;
+  answers: OfflineMockTestAnswerPayload[];
+}
+
+export type PendingOperation = ApiPendingOperation | MockTestSubmissionPendingOperation;
+
+type LegacyApiPendingOperation = {
   id: string;
   endpoint: string;
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body: unknown;
   createdAt: number;
-}
+  type?: undefined;
+};
+
+type PendingOperationInput =
+  | Omit<ApiPendingOperation, 'id' | 'createdAt' | 'type'> & { type?: 'API_REQUEST' }
+  | Omit<MockTestSubmissionPendingOperation, 'id' | 'createdAt'>;
 
 export function getPendingOperations(): PendingOperation[] {
   const raw = appStorage.getString(PENDING_OPS_KEY);
   if (!raw) return [];
   try {
-    return JSON.parse(raw);
+    const parsed: Array<PendingOperation | LegacyApiPendingOperation> = JSON.parse(raw);
+    return parsed.map((op) => {
+      if (op.type === 'MOCK_TEST_SUBMISSION') {
+        return op;
+      }
+
+      return {
+        type: 'API_REQUEST',
+        endpoint: op.endpoint,
+        method: op.method,
+        body: op.body,
+        id: op.id,
+        createdAt: op.createdAt,
+      };
+    });
   } catch {
     return [];
   }
 }
 
-export function addPendingOperation(op: Omit<PendingOperation, 'id' | 'createdAt'>): void {
+export function addPendingOperation(op: PendingOperationInput): void {
   const ops = getPendingOperations();
-  ops.push({
-    ...op,
+  const common = {
     id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     createdAt: Date.now(),
-  });
+  };
+
+  if (op.type === 'MOCK_TEST_SUBMISSION') {
+    ops.push({
+      ...common,
+      type: 'MOCK_TEST_SUBMISSION',
+      mockTestId: op.mockTestId,
+      answers: op.answers,
+    });
+  } else {
+    ops.push({
+      ...common,
+      type: 'API_REQUEST',
+      endpoint: op.endpoint,
+      method: op.method,
+      body: op.body,
+    });
+  }
+
   appStorage.set(PENDING_OPS_KEY, JSON.stringify(ops));
 }
 

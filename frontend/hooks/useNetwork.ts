@@ -67,10 +67,33 @@ async function flushPendingOperations(): Promise<void> {
 
   for (const op of ops) {
     try {
-      await apiRequest(op.endpoint, {
-        method: op.method,
-        body: op.body,
-      });
+      if (op.type === 'MOCK_TEST_SUBMISSION') {
+        const startedAttempt = await apiRequest<{ id: number }>('/api/attempts/start/', {
+          method: 'POST',
+          body: { mock_test_id: op.mockTestId, mode: 'MOCK_TEST' },
+        });
+
+        const answers = op.answers.map((answer) => ({
+          ...answer,
+          user_attempt: startedAttempt.id,
+        }));
+
+        await apiRequest('/api/answers/bulk/', {
+          method: 'POST',
+          body: { answers },
+        });
+
+        await apiRequest(`/api/attempts/${startedAttempt.id}/submit/`, {
+          method: 'POST',
+          body: {},
+        });
+      } else {
+        await apiRequest(op.endpoint, {
+          method: op.method,
+          body: op.body,
+        });
+      }
+
       removePendingOperation(op.id);
     } catch {
       break;

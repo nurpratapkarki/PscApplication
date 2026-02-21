@@ -12,29 +12,30 @@ import { useApi } from '../../../hooks/useApi';
 import { MockTest, UserAttempt, UserAnswer, UserAnswerCreatePayload } from '../../../types/test.types';
 import { useColors } from '../../../hooks/useColors';
 import { useLocalizedField } from '../../../hooks/useLocalizedField';
-import { attemptStorage, addPendingOperation } from '../../../services/storage';
-import { isOnline } from '../../../hooks/useNetwork';
+import { apiRequest } from '../../../services/api/client';
+import { attemptStorage, addPendingOperation, type OfflineMockTestAnswerPayload } from '../../../services/storage';
+import { isOnline, useNetwork } from '../../../hooks/useNetwork';
 import { useAdInterstitial } from '../../../hooks/useInterstitialAd';
 
 const storage = attemptStorage;
-const ATTEMPT_KEY = (id: number) => `attempt_${id}_answers`;
-const TIME_KEY = (id: number) => `attempt_${id}_timeLeft`;
+const ATTEMPT_KEY = (id: number | string) => `attempt_${id}_answers`;
+const TIME_KEY = (id: number | string) => `attempt_${id}_timeLeft`;
 
-function saveAnswers(id: number, answers: Record<number, number | null>) {
+function saveAnswers(id: number | string, answers: Record<number, number | null>) {
   storage.set(ATTEMPT_KEY(id), JSON.stringify(answers));
 }
-function loadAnswers(id: number): Record<number, number | null> {
+function loadAnswers(id: number | string): Record<number, number | null> {
   const raw = storage.getString(ATTEMPT_KEY(id));
   if (!raw) return {};
   try { return JSON.parse(raw); } catch { return {}; }
 }
-function saveTimeLeft(id: number, seconds: number) {
+function saveTimeLeft(id: number | string, seconds: number) {
   storage.set(TIME_KEY(id), seconds);
 }
-function loadTimeLeft(id: number): number | null {
+function loadTimeLeft(id: number | string): number | null {
   return storage.getNumber(TIME_KEY(id)) ?? null;
 }
-function clearAttemptCache(id: number) {
+function clearAttemptCache(id: number | string) {
   storage.remove(ATTEMPT_KEY(id));
   storage.remove(TIME_KEY(id));
 }
@@ -56,23 +57,27 @@ const TestAttemptScreen = () => {
     if (Array.isArray(params.testId)) return params.testId[0];
     return params.testId;
   }, [params.testId]);
+  const numericTestId = Number.parseInt(testId || '', 10);
+  const { isConnected } = useNetwork();
 
   const { execute: startAttempt, data: userAttempt, status: attemptStatus } =
     useApi<UserAttempt>('/api/attempts/start/', true);
-  const { execute: fetchTest, data: testData, status: testStatus, error: testError } =
+  const {
+    execute: fetchTest,
+    data: testData,
+    status: testStatus,
+    error: testError,
+    isOfflineData: isOfflineTestData,
+  } =
     useApi<MockTest>(testId ? `/api/mock-tests/${testId}/` : '', true);
   const { execute: submitBulkAnswers, status: bulkAnswerStatus } =
     useApi<UserAnswer[]>('/api/answers/bulk/', true, { method: 'POST' });
-  const { execute: submitTest, status: submitStatus } =
-    useApi<UserAttempt>(
-      userAttempt ? `/api/attempts/${userAttempt.id}/submit/` : '',
-      true, { method: 'POST' }
-    );
 
   const [answers, setAnswers] = useState<Record<number, number | null>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(-1);
   const [showQuestionNav, setShowQuestionNav] = useState(false);
+  const [offlineAttemptKey, setOfflineAttemptKey] = useState<string | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasAutoSubmitted = useRef(false);
@@ -81,27 +86,39 @@ const TestAttemptScreen = () => {
   const questionStartTime = useRef(Date.now());
   const questionTimings = useRef<Record<number, number>>({});
   const { showAfterMockTest } = useAdInterstitial();
+  const activeAttemptKey = userAttempt ? String(userAttempt.id) : offlineAttemptKey;
+  const isOfflineMode = !userAttempt && !!offlineAttemptKey;
 
   useEffect(() => {
     if (!testId || hasInitialized.current) return;
     hasInitialized.current = true;
-    startAttempt({ mock_test_id: parseInt(testId, 10), mode: 'MOCK_TEST' }).catch(() => {});
-  }, [testId, startAttempt]);
+    fetchTest().catch(() => {});
+
+    if (!Number.isFinite(numericTestId)) {
+      return;
+    }
+
+    if (!isConnected) {
+      setOfflineAttemptKey(`offline_test_${testId}`);
+      return;
+    }
+
+    startAttempt({ mock_test_id: numericTestId, mode: 'MOCK_TEST' }).catch(() => {
+      // Allow fully offline attempt flow when server attempt cannot be started.
+      setOfflineAttemptKey(`offline_test_${testId}`);
+    });
+  }, [testId, numericTestId, fetchTest, startAttempt, isConnected]);
 
   useEffect(() => {
-    if (userAttempt) fetchTest();
-  }, [userAttempt, fetchTest]);
-
-  useEffect(() => {
-    if (!userAttempt) return;
-    const cached = loadAnswers(userAttempt.id);
+    if (!activeAttemptKey) return;
+    const cached = loadAnswers(activeAttemptKey);
     if (Object.keys(cached).length > 0) setAnswers(cached);
-    const cachedTime = loadTimeLeft(userAttempt.id);
+    const cachedTime = loadTimeLeft(activeAttemptKey);
     if (cachedTime !== null && cachedTime > 0) {
       setTimeLeft(cachedTime);
       timerInitialized.current = true;
     }
-  }, [userAttempt]);
+  }, [activeAttemptKey]);
 
   useEffect(() => {
     if (testData?.duration_minutes && !timerInitialized.current) {
@@ -116,33 +133,32 @@ const TestAttemptScreen = () => {
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         const next = prev <= 1 ? 0 : prev - 1;
-        if (userAttempt && next % 5 === 0) saveTimeLeft(userAttempt.id, next);
+        if (activeAttemptKey && next % 5 === 0) saveTimeLeft(activeAttemptKey, next);
         if (next === 0 && timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
         return next;
       });
     }, 1000);
     return () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
-  }, [testData, timeLeft > 0]); // eslint-disable-line
+  }, [testData, activeAttemptKey, timeLeft > 0]); // eslint-disable-line
 
-  const handleSubmit = useCallback(async () => {
-    if (!userAttempt || submitStatus === 'loading' || bulkAnswerStatus === 'loading') return;
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-
-    const answerPayloads: UserAnswerCreatePayload[] = Object.entries(answers).map(
-      ([questionId, answerId]) => ({
-        user_attempt: userAttempt.id,
-        question: parseInt(questionId, 10),
-        selected_answer: answerId,
-        time_taken_seconds: questionTimings.current[parseInt(questionId, 10)] ?? 0,
-        is_skipped: answerId === null,
-        is_marked_for_review: false,
-      })
+  const buildOfflineAnswerPayloads = useCallback((): OfflineMockTestAnswerPayload[] => {
+    const payloads: OfflineMockTestAnswerPayload[] = Object.entries(answers).map(
+      ([questionId, answerId]) => {
+        const numericQuestionId = Number.parseInt(questionId, 10);
+        return {
+          question: numericQuestionId,
+          selected_answer: answerId,
+          time_taken_seconds: questionTimings.current[numericQuestionId] ?? 0,
+          is_skipped: answerId === null,
+          is_marked_for_review: false,
+        };
+      },
     );
-    const answeredIds = new Set(Object.keys(answers).map(Number));
+
+    const answeredIds = new Set(payloads.map((p) => p.question));
     testData?.test_questions?.forEach(({ question }) => {
       if (!answeredIds.has(question.id)) {
-        answerPayloads.push({
-          user_attempt: userAttempt.id,
+        payloads.push({
           question: question.id,
           selected_answer: null,
           time_taken_seconds: 0,
@@ -152,34 +168,111 @@ const TestAttemptScreen = () => {
       }
     });
 
-    try {
-      await submitBulkAnswers({ answers: answerPayloads });
-      await submitTest();
-      clearAttemptCache(userAttempt.id);
-      const attemptId = userAttempt.id;
-      showAfterMockTest(() => { router.replace(`/tests/${attemptId}/results`); });
-    } catch {
-      if (!isOnline()) {
-        addPendingOperation({ endpoint: '/api/answers/bulk/', method: 'POST', body: { answers: answerPayloads } });
-        addPendingOperation({ endpoint: `/api/attempts/${userAttempt.id}/submit/`, method: 'POST', body: {} });
-        clearAttemptCache(userAttempt.id);
-        Alert.alert(
-          t('tests.savedOffline', { defaultValue: 'Saved Offline' }),
-          t('tests.savedOfflineMsg', { defaultValue: 'Your answers have been saved and will sync when you\'re back online.' }),
-          [{ text: t('common.ok'), onPress: () => router.replace('/(tabs)/tests') }],
-        );
-      } else {
-        Alert.alert(t('tests.submissionFailed'), t('tests.submissionFailedMsg'));
+    return payloads;
+  }, [answers, testData]);
+
+  const handleSubmit = useCallback(async () => {
+    if (bulkAnswerStatus === 'loading') return;
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+
+    const offlineAnswerPayloads = buildOfflineAnswerPayloads();
+
+    if (userAttempt) {
+      const answerPayloads: UserAnswerCreatePayload[] = offlineAnswerPayloads.map((answer) => ({
+        ...answer,
+        user_attempt: userAttempt.id,
+      }));
+
+      try {
+        await submitBulkAnswers({ answers: answerPayloads });
+        await apiRequest(`/api/attempts/${userAttempt.id}/submit/`, { method: 'POST', body: {} });
+        if (activeAttemptKey) {
+          clearAttemptCache(activeAttemptKey);
+        }
+        const attemptId = userAttempt.id;
+        showAfterMockTest(() => { router.replace(`/tests/${attemptId}/results`); });
+        return;
+      } catch {
+        if (!isOnline()) {
+          addPendingOperation({ endpoint: '/api/answers/bulk/', method: 'POST', body: { answers: answerPayloads } });
+          addPendingOperation({ endpoint: `/api/attempts/${userAttempt.id}/submit/`, method: 'POST', body: {} });
+          if (activeAttemptKey) {
+            clearAttemptCache(activeAttemptKey);
+          }
+          Alert.alert(
+            t('tests.savedOffline', { defaultValue: 'Saved Offline' }),
+            t('tests.savedOfflineMsg', { defaultValue: 'Your answers have been saved and will sync when you\'re back online.' }),
+            [{ text: t('common.ok'), onPress: () => router.replace('/(tabs)/tests') }],
+          );
+          return;
+        }
+      }
+
+      Alert.alert(t('tests.submissionFailed'), t('tests.submissionFailedMsg'));
+      return;
+    }
+
+    // If offline attempt mode later regains network, try immediate submit first.
+    if (Number.isFinite(numericTestId) && isOnline()) {
+      try {
+        const startedAttempt = await apiRequest<UserAttempt>('/api/attempts/start/', {
+          method: 'POST',
+          body: { mock_test_id: numericTestId, mode: 'MOCK_TEST' },
+        });
+
+        const answersForStartedAttempt: UserAnswerCreatePayload[] = offlineAnswerPayloads.map((answer) => ({
+          ...answer,
+          user_attempt: startedAttempt.id,
+        }));
+
+        await submitBulkAnswers({ answers: answersForStartedAttempt });
+        await apiRequest(`/api/attempts/${startedAttempt.id}/submit/`, { method: 'POST', body: {} });
+        if (activeAttemptKey) {
+          clearAttemptCache(activeAttemptKey);
+        }
+        showAfterMockTest(() => { router.replace(`/tests/${startedAttempt.id}/results`); });
+        return;
+      } catch {
+        // Fall through to queued offline sync
       }
     }
-  }, [userAttempt, answers, testData, submitBulkAnswers, submitTest, router, submitStatus, bulkAnswerStatus, t, showAfterMockTest]);
+
+    if (Number.isFinite(numericTestId)) {
+      addPendingOperation({
+        type: 'MOCK_TEST_SUBMISSION',
+        mockTestId: numericTestId,
+        answers: offlineAnswerPayloads,
+      });
+      if (activeAttemptKey) {
+        clearAttemptCache(activeAttemptKey);
+      }
+      Alert.alert(
+        t('tests.savedOffline', { defaultValue: 'Saved Offline' }),
+        t('tests.savedOfflineMsg', { defaultValue: 'Your answers have been saved and will sync when you\'re back online.' }),
+        [{ text: t('common.ok'), onPress: () => router.replace('/(tabs)/tests') }],
+      );
+      return;
+    }
+
+    Alert.alert(t('tests.submissionFailed'), t('tests.submissionFailedMsg'));
+  }, [
+    bulkAnswerStatus,
+    buildOfflineAnswerPayloads,
+    userAttempt,
+    submitBulkAnswers,
+    activeAttemptKey,
+    t,
+    router,
+    numericTestId,
+    showAfterMockTest,
+  ]);
 
   useEffect(() => {
-    if (timeLeft === 0 && timerInitialized.current && testData && !hasAutoSubmitted.current && submitStatus !== 'loading') {
+    if (timeLeft === 0 && timerInitialized.current && testData && !hasAutoSubmitted.current && bulkAnswerStatus !== 'loading') {
       hasAutoSubmitted.current = true;
       Alert.alert(t('tests.timesUp'), t('tests.timesUpMsg'), [{ text: t('common.ok'), onPress: handleSubmit }]);
     }
-  }, [timeLeft, testData, handleSubmit, submitStatus, t]);
+  }, [timeLeft, testData, handleSubmit, bulkAnswerStatus, t]);
 
   useEffect(() => {
     const backAction = () => {
@@ -196,10 +289,10 @@ const TestAttemptScreen = () => {
     questionStartTime.current = Date.now();
     setAnswers(prev => {
       const updated = { ...prev, [questionId]: answerId };
-      if (userAttempt) saveAnswers(userAttempt.id, updated);
+      if (activeAttemptKey) saveAnswers(activeAttemptKey, updated);
       return updated;
     });
-  }, [userAttempt]);
+  }, [activeAttemptKey]);
 
   const handleNext = useCallback(() => {
     if (testData?.test_questions && currentQuestionIndex < testData.test_questions.length - 1) {
@@ -238,11 +331,11 @@ const TestAttemptScreen = () => {
 
   useEffect(() => { return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, []);
 
-  const isSubmitting = submitStatus === 'loading' || bulkAnswerStatus === 'loading';
+  const isSubmitting = bulkAnswerStatus === 'loading';
   const totalQuestions = testData?.test_questions?.length || 0;
   const answeredCount = Object.keys(answers).length;
 
-  if (attemptStatus === 'loading' || testStatus === 'loading' || (testId && !testData)) {
+  if (testStatus === 'loading' || (attemptStatus === 'loading' && isConnected && !offlineAttemptKey)) {
     return (
       <SafeAreaView style={[styles.centered, { backgroundColor: colors.background }]}>
         <View style={[styles.loadingCard, { backgroundColor: colors.surface }]}>
@@ -277,6 +370,14 @@ const TestAttemptScreen = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
+      {(isOfflineMode || isOfflineTestData) && (
+        <View style={[styles.offlineBanner, { backgroundColor: colors.warning + '18' }]}>
+          <MaterialCommunityIcons name="cloud-off-outline" size={14} color={colors.warning} />
+          <Text style={[styles.offlineBannerText, { color: colors.warning }]}>
+            {t('offline.usingCachedData')}
+          </Text>
+        </View>
+      )}
 
       {/* ── Top bar ── */}
       <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
@@ -559,6 +660,15 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingCard: { padding: 32, borderRadius: 20, alignItems: 'center', gap: 12 },
   loadingText: { fontSize: 14, textAlign: 'center' },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  offlineBannerText: { fontSize: 12, fontWeight: '700' },
 
   // Top bar
   topBar: {

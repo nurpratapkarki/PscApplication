@@ -72,9 +72,11 @@ const QuestionScreen = () => {
   const colors = useColors();
   const lf = useLocalizedField();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
-  const params = useLocalSearchParams<{ categoryId: string; count?: string }>();
+  const params = useLocalSearchParams<{ categoryId: string; count?: string; categoryName?: string }>();
   const categoryId = params.categoryId;
   const count = params.count || '10';
+  const categoryName = params.categoryName || `Category ${categoryId}`;
+  const requestedCount = Number.parseInt(count, 10) || 10;
 
   // Practice store for session persistence
   const { startSession, answerQuestion, completeSession, session } = usePracticeStore();
@@ -101,18 +103,18 @@ const QuestionScreen = () => {
       .then((res) => {
         // Cache the fetched questions for offline use
         if (res?.results) {
-          cacheQuestions(Number(categoryId), `Category ${categoryId}`, res.results);
+          cacheQuestions(Number(categoryId), categoryName, res.results);
         }
       })
       .catch(async () => {
         // API failed — try loading from cache
         const cached = await getCachedQuestions(Number(categoryId));
         if (cached && cached.length > 0) {
-          setCachedFallback(cached);
+          setCachedFallback(cached.slice(0, requestedCount));
           setIsOffline(true);
         }
       });
-  }, [categoryId, count, fetchQuestions]);
+  }, [categoryId, count, categoryName, fetchQuestions, requestedCount]);
 
   // Initialize practice store session when questions load
   useEffect(() => {
@@ -125,9 +127,9 @@ const QuestionScreen = () => {
           [prepared[i], prepared[j]] = [prepared[j], prepared[i]];
         }
       }
-      startSession(Number(categoryId), `Category ${categoryId}`, prepared);
+      startSession(Number(categoryId), categoryName, prepared);
     }
-  }, [questions, categoryId, startSession, session, shuffleQuestions]);
+  }, [questions, categoryId, categoryName, startSession, session, shuffleQuestions]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);

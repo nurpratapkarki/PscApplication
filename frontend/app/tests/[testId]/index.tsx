@@ -178,7 +178,7 @@ const TestDetailsScreen = () => {
           <View style={[styles.attemptBanner, { backgroundColor: colors.primary + '10' }]}>
             <MaterialCommunityIcons name="account-multiple" size={16} color={colors.primary} />
             <Text style={[styles.attemptText, { color: colors.primary }]}>
-              {t('tests.peopleTaken', { count: test.attempt_count.toLocaleString() })}
+              {t('tests.peopleTaken', { count: test.attempt_count })}
             </Text>
           </View>
         )}
