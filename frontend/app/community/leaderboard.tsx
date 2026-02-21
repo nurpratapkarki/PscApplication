@@ -54,10 +54,12 @@ const TabToggle = ({
   value,
   onChange,
   colors,
+  t,
 }: {
   value: RankingType;
   onChange: (v: RankingType) => void;
   colors: ReturnType<typeof useColors>;
+  t: (key: string) => string;
 }) => (
   <View style={[tabStyles.container, { backgroundColor: 'rgba(0,0,0,0.2)' }]}>
     {(['answers', 'contributions'] as RankingType[]).map((tab) => {
@@ -84,7 +86,7 @@ const TabToggle = ({
               active && { fontWeight: '700' },
             ]}
           >
-            {tab === 'answers' ? 'Most Answered' : 'Contributors'}
+            {tab === 'answers' ? t('leaderboard.mostAnswered') : t('leaderboard.topContributors')}
           </Text>
         </TouchableOpacity>
       );
@@ -119,11 +121,13 @@ const PodiumCard = ({
   position,
   rankingType,
   colors,
+  t,
 }: {
   entry: RankingEntry;
   position: 1 | 2 | 3;
   rankingType: RankingType;
   colors: ReturnType<typeof useColors>;
+  t: (key: string) => string;
 }) => {
   const isFirst = position === 1;
   const medalColor = MEDAL[position - 1];
@@ -186,8 +190,8 @@ const PodiumCard = ({
 
       <Text style={podiumStyles.accuracy}>
         {rankingType === 'answers'
-          ? `${entry.accuracy_percentage}% acc`
-          : `${entry.study_streak_days}d streak`}
+          ? `${entry.accuracy_percentage}% ${t('leaderboard.accuracyShort')}`
+          : `${entry.study_streak_days} ${t('leaderboard.dayStreak')}`}
       </Text>
     </View>
   );
@@ -256,21 +260,23 @@ const RankRow = ({
   rankingType,
   isMe,
   colors,
+  t,
 }: {
   entry: RankingEntry;
   rankingType: RankingType;
   isMe: boolean;
   colors: ReturnType<typeof useColors>;
+  t: (key: string) => string;
 }) => {
   const primaryValue =
     rankingType === 'answers'
       ? entry.questions_answered
       : entry.questions_contributed;
-  const primaryLabel = rankingType === 'answers' ? 'ans' : 'contrib';
+  const primaryLabel = rankingType === 'answers' ? t('leaderboard.answeredShort') : t('leaderboard.contributedShort');
   const secondary =
     rankingType === 'answers'
-      ? `${entry.accuracy_percentage}% acc • ${entry.mock_tests_completed} tests`
-      : `${entry.questions_answered} answered • ${entry.study_streak_days}d streak`;
+      ? `${entry.accuracy_percentage}% ${t('leaderboard.accuracyShort')} • ${entry.mock_tests_completed} ${t('leaderboard.tests')}`
+      : `${entry.questions_answered} ${t('leaderboard.answered')} • ${entry.study_streak_days} ${t('leaderboard.dayStreak')}`;
 
   return (
     <View
@@ -305,7 +311,7 @@ const RankRow = ({
           </Text>
           {isMe && (
             <View style={[rowStyles.youPill, { backgroundColor: colors.primary }]}>
-              <Text style={rowStyles.youText}>YOU</Text>
+              <Text style={rowStyles.youText}>{t('leaderboard.you')}</Text>
             </View>
           )}
         </View>
@@ -362,10 +368,12 @@ const MyRankBanner = ({
   entry,
   rankingType,
   colors,
+  t,
 }: {
   entry: RankingEntry;
   rankingType: RankingType;
   colors: ReturnType<typeof useColors>;
+  t: (key: string) => string;
 }) => {
   const primaryValue =
     rankingType === 'answers'
@@ -380,7 +388,7 @@ const MyRankBanner = ({
       ]}
     >
       <View style={bannerStyles.left}>
-        <Text style={bannerStyles.label}>YOUR RANK</Text>
+        <Text style={bannerStyles.label}>{t('leaderboard.yourRank').toUpperCase()}</Text>
         <Text style={bannerStyles.rankNum}>#{entry.rank}</Text>
       </View>
 
@@ -409,7 +417,7 @@ const MyRankBanner = ({
           {primaryValue.toLocaleString()}
         </Text>
         <Text style={bannerStyles.scoreLabel}>
-          {rankingType === 'answers' ? 'answered' : 'contributed'}
+          {rankingType === 'answers' ? t('leaderboard.answered') : t('leaderboard.contributed')}
         </Text>
       </View>
     </View>
@@ -490,15 +498,15 @@ export default function LeaderboardScreen() {
             size={22}
             color="rgba(255,255,255,0.9)"
           />
-          <Text style={heroStyles.title}>Leaderboard</Text>
+          <Text style={heroStyles.title}>{t('leaderboard.title')}</Text>
         </View>
         <Text style={heroStyles.subtitle}>
           {rankingType === 'answers'
-            ? 'Top question solvers'
-            : 'Top question contributors'}
+            ? t('leaderboard.topSolversSubtitle')
+            : t('leaderboard.topContributorsSubtitle')}
         </Text>
 
-        <TabToggle value={rankingType} onChange={setRankingType} colors={colors} />
+        <TabToggle value={rankingType} onChange={setRankingType} colors={colors} t={t} />
 
         {/* Podium — inside hero band, only if there's at least 1 user */}
         {topUsers.length > 0 && (
@@ -517,6 +525,7 @@ export default function LeaderboardScreen() {
                   position={pos as 1 | 2 | 3}
                   rankingType={rankingType}
                   colors={colors}
+                  t={t}
                 />
               );
             })}
@@ -544,12 +553,12 @@ export default function LeaderboardScreen() {
             />
           </View>
           <Text style={[bodyStyles.emptyTitle, { color: colors.textPrimary }]}>
-            No rankings yet
+            {t('leaderboard.noData')}
           </Text>
           <Text style={[bodyStyles.emptySub, { color: colors.textSecondary }]}>
             {rankingType === 'answers'
-              ? 'Answer questions to appear here'
-              : 'Contribute questions to appear here'}
+              ? t('leaderboard.noDataAnswers')
+              : t('leaderboard.noDataContributions')}
           </Text>
         </View>
       ) : (
@@ -563,6 +572,7 @@ export default function LeaderboardScreen() {
               entry={myEntry}
               rankingType={rankingType}
               colors={colors}
+              t={t}
             />
           )}
 
@@ -577,7 +587,7 @@ export default function LeaderboardScreen() {
               <Text
                 style={[bodyStyles.sectionLabel, { color: colors.textSecondary }]}
               >
-                RANKINGS
+                {t('leaderboard.rankingsSection').toUpperCase()}
               </Text>
               <View
                 style={[
@@ -586,7 +596,7 @@ export default function LeaderboardScreen() {
                 ]}
               >
                 <Text style={[bodyStyles.countText, { color: colors.primary }]}>
-                  {topUsers.length} users
+                  {t('leaderboard.usersCount', { count: topUsers.length })}
                 </Text>
               </View>
             </View>
@@ -606,6 +616,7 @@ export default function LeaderboardScreen() {
                 rankingType={rankingType}
                 isMe={entry.rank === myRank}
                 colors={colors}
+                t={t}
               />
             ))}
 
@@ -620,8 +631,7 @@ export default function LeaderboardScreen() {
                 <Text
                   style={[bodyStyles.topOnlyText, { color: colors.textTertiary }]}
                 >
-                  Only {topUsers.length} ranked{' '}
-                  {topUsers.length === 1 ? 'user' : 'users'} so far
+                  {t('leaderboard.onlyRanked', { count: topUsers.length })}
                 </Text>
               </View>
             )}

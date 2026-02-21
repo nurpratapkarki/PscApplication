@@ -1,4 +1,5 @@
 import { Text, TouchableOpacity, View } from "react-native";
+import i18next from "i18next";
 
 export interface QuestionNavigatorProps {
   currentIndex: number;
@@ -20,10 +21,10 @@ export function QuestionNavigator({
       </Text>
       <View>
         <TouchableOpacity onPress={onPrevious}>
-          <Text>Previous</Text>
+          <Text>{i18next.t("tests.previous")}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onNext}>
-          <Text>Next</Text>
+          <Text>{i18next.t("tests.next")}</Text>
         </TouchableOpacity>
       </View>
     </View>

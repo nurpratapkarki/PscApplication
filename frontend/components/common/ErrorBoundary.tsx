@@ -2,6 +2,7 @@ import React from "react";
 import type { ReactNode } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import i18next from "i18next";
 import { Colors } from "../../constants/colors";
 import { Spacing, BorderRadius } from "../../constants/typography";
 
@@ -41,13 +42,13 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             size={64}
             color={Colors.error}
           />
-          <Text style={styles.title}>Something went wrong</Text>
+          <Text style={styles.title}>{i18next.t("errorBoundary.title")}</Text>
           <Text style={styles.message}>
-            {this.state.error?.message || "An unexpected error occurred."}
+            {this.state.error?.message || i18next.t("errorBoundary.unexpected")}
           </Text>
           <TouchableOpacity style={styles.button} onPress={this.handleRetry}>
             <MaterialCommunityIcons name="refresh" size={20} color={Colors.white} />
-            <Text style={styles.buttonText}>Try Again</Text>
+            <Text style={styles.buttonText}>{i18next.t("common.retry")}</Text>
           </TouchableOpacity>
         </View>
       );

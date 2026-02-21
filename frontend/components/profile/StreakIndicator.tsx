@@ -1,4 +1,5 @@
 import { Text, View } from "react-native";
+import i18next from "i18next";
 
 export interface StreakIndicatorProps {
   currentStreak: number;
@@ -8,8 +9,8 @@ export interface StreakIndicatorProps {
 export function StreakIndicator({ currentStreak, longestStreak }: StreakIndicatorProps) {
   return (
     <View>
-      <Text>Current streak: {currentStreak}</Text>
-      <Text>Longest streak: {longestStreak}</Text>
+      <Text>{i18next.t("profile.currentStreak", { count: currentStreak })}</Text>
+      <Text>{i18next.t("profile.longestStreak", { count: longestStreak })}</Text>
     </View>
   );
 }

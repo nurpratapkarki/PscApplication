@@ -61,20 +61,22 @@ const quickActions: QuickAction[] = [
 ];
 
 // ── Greeting based on time ────────────────────────────────────────────────────
-function getGreeting(): string {
+function getGreeting(t: (key: string) => string): string {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return t('home.goodMorning');
+  if (hour < 17) return t('home.goodAfternoon');
+  return t('home.goodEvening');
 }
 
 // ── Streak flame with intensity ───────────────────────────────────────────────
 function StreakBadge({
   days,
   colors,
+  t,
 }: {
   days: number;
   colors: ReturnType<typeof useColors>;
+  t: (key: string) => string;
 }) {
   const intensity = days >= 30 ? '🔥🔥' : days >= 7 ? '🔥' : '✨';
   return (
@@ -82,7 +84,7 @@ function StreakBadge({
       <Text style={streakStyles.flame}>{intensity}</Text>
       <View>
         <Text style={streakStyles.days}>{days}</Text>
-        <Text style={streakStyles.label}>day streak</Text>
+        <Text style={streakStyles.label}>{t('leaderboard.dayStreak')}</Text>
       </View>
     </View>
   );
@@ -251,7 +253,7 @@ export default function HomeScreen() {
         <View style={[styles.hero, { backgroundColor: colors.primary }]}>
           <View style={styles.heroTop}>
             <View style={styles.heroLeft}>
-              <Text style={styles.heroGreeting}>{getGreeting()}</Text>
+              <Text style={styles.heroGreeting}>{getGreeting(t)}</Text>
               <Text style={styles.heroName} numberOfLines={1}>
                 {firstName || t('home.greeting')} 👋
               </Text>
@@ -304,7 +306,7 @@ export default function HomeScreen() {
 
           {/* Streak badge */}
           {streakDays > 0 && (
-            <StreakBadge days={streakDays} colors={colors} />
+            <StreakBadge days={streakDays} colors={colors} t={t} />
           )}
         </View>
 
@@ -323,28 +325,28 @@ export default function HomeScreen() {
               <MiniStat
                 icon="help-circle"
                 value={stats?.questions_answered || 0}
-                label="Answered"
+                label={t('analytics.answered')}
                 color={colors.primary}
                 colors={colors}
               />
               <MiniStat
                 icon="percent"
                 value={`${accuracy.toFixed(0)}%`}
-                label="Accuracy"
+                label={t('analytics.accuracy')}
                 color={colors.success}
                 colors={colors}
               />
               <MiniStat
                 icon="clipboard-check"
                 value={stats?.mock_tests_completed || 0}
-                label="Tests Done"
+                label={t('home.testsDone')}
                 color={colors.accent}
                 colors={colors}
               />
               <MiniStat
                 icon="trophy"
                 value={stats?.answers_rank ? `#${stats.answers_rank}` : '—'}
-                label="Rank"
+                label={t('profile.rank')}
                 color={colors.warning}
                 colors={colors}
               />
@@ -389,7 +391,7 @@ export default function HomeScreen() {
                 {t('home.practiceDesc', { defaultValue: 'Practice questions by category' })}
               </Text>
               <View style={styles.continueBtn}>
-                <Text style={styles.continueBtnText}>Start Practicing</Text>
+                <Text style={styles.continueBtnText}>{t('home.startPracticing')}</Text>
                 <MaterialCommunityIcons name="arrow-right" size={14} color={colors.primary} />
               </View>
             </View>

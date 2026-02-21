@@ -48,7 +48,7 @@ export default function AboutScreen() {
           <View style={[styles.logoContainer, { backgroundColor: Colors.primary }]}>
             <MaterialCommunityIcons name="school" size={48} color="#fff" />
           </View>
-          <Text style={[styles.appName, { color: colors.textPrimary }]}>PSC Exam Prep</Text>
+          <Text style={[styles.appName, { color: colors.textPrimary }]}>{t('auth.appName')}</Text>
           <Text style={[styles.appVersion, { color: colors.textSecondary }]}>
             {t('about.version')} {APP_VERSION}
           </Text>
@@ -113,7 +113,7 @@ export default function AboutScreen() {
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons name="github" size={20} color={colors.textPrimary} />
-                <Text style={[styles.devLinkText, { color: colors.textPrimary }]}>GitHub</Text>
+                <Text style={[styles.devLinkText, { color: colors.textPrimary }]}>{t('about.github')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.devLinkBtn, { backgroundColor: colors.surfaceVariant }]}
@@ -121,7 +121,7 @@ export default function AboutScreen() {
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons name="email" size={20} color={colors.textPrimary} />
-                <Text style={[styles.devLinkText, { color: colors.textPrimary }]}>Email</Text>
+                <Text style={[styles.devLinkText, { color: colors.textPrimary }]}>{t('about.email')}</Text>
               </TouchableOpacity>
             </View>
           </Card.Content>

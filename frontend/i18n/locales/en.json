@@ -26,10 +26,10 @@
     "skipped": "Skipped"
   },
   "home": {
-    "greeting": "Namaste! \ud83d\udc4b",
+    "greeting": "Namaste! 👋",
     "welcomeText": "Ready to learn today?",
     "yourProgress": "Your Progress",
-    "viewDetails": "View Details \u2192",
+    "viewDetails": "View Details →",
     "dayStreak": "Day Streak",
     "answered": "Answered",
     "accuracy": "Accuracy",
@@ -43,7 +43,12 @@
     "pickUpWhereLeft": "Pick up where you left off",
     "resume": "Resume",
     "dailyTip": "Daily Tip",
-    "dailyTipText": "Practice consistently for 30 minutes daily. Small, regular sessions are more effective than long, irregular ones."
+    "dailyTipText": "Practice consistently for 30 minutes daily. Small, regular sessions are more effective than long, irregular ones.",
+    "goodMorning": "Good morning",
+    "goodAfternoon": "Good afternoon",
+    "goodEvening": "Good evening",
+    "testsDone": "Tests Done",
+    "startPracticing": "Start Practicing"
   },
   "practice": {
     "selectCategory": "Select Category",
@@ -140,7 +145,18 @@
     "testTitle": "Test Title",
     "testTitlePlaceholder": "Enter test title...",
     "totalMarks": "Total Marks",
-    "generationSoon": "Test '{{title}}' generation is coming soon! Stay tuned."
+    "generationSoon": "Test '{{title}}' generation is coming soon! Stay tuned.",
+    "yourBranch": "Your Branch",
+    "myBranch": "My Branch",
+    "myTests": "My Tests",
+    "noResults": "No results found",
+    "noTestsAvailable": "No tests available",
+    "noResultsForQuery": "No tests matching \"{{query}}\"",
+    "checkBackLater": "Check back later",
+    "peopleTaken": "{{count}} people have taken this test",
+    "readyToStart": "Ready to start?",
+    "current": "Current",
+    "unanswered": "Unanswered"
   },
   "notifications": {
     "title": "Notifications",
@@ -210,7 +226,9 @@
     "updateFailed": "Failed to update profile",
     "user": "User",
     "validationError": "Validation Error",
-    "viewDetails": "View Details"
+    "viewDetails": "View Details",
+    "currentStreak": "Current streak: {{count}}",
+    "longestStreak": "Longest streak: {{count}}"
   },
   "settings": {
     "notifications": "Notifications",
@@ -221,7 +239,7 @@
     "receiveReminders": "Receive study reminders",
     "playSounds": "Play sounds for actions",
     "switchDarkTheme": "Switch to dark theme",
-    "languageToggle": "English / \u0928\u0947\u092a\u093e\u0932\u0940",
+    "languageToggle": "English / नेपाली",
     "autoSync": "Auto Sync",
     "clearCache": "Clear Cache",
     "clearCacheConfirm": "Are you sure you want to clear the cache? This won't affect your account data.",
@@ -248,7 +266,8 @@
     "appVersionInfo": "App version and info",
     "appearance": "Appearance",
     "dataStorage": "Data & Storage",
-    "privacySecurity": "Privacy & Security"
+    "privacySecurity": "Privacy & Security",
+    "clearCacheFailed": "Failed to clear cache"
   },
   "analytics": {
     "title": "Analytics",
@@ -388,7 +407,22 @@
     "uploadFileHint": "Select an Excel or PDF file with questions",
     "uploadFileTitle": "Upload File",
     "uploading": "Uploading...",
-    "uploadQuestions": "Upload Questions"
+    "uploadQuestions": "Upload Questions",
+    "commonSubjects": "Common Subjects",
+    "serviceSpecific": "Service Specific",
+    "specialization": "Specialization",
+    "questionsUploaded": "{{count}} questions uploaded",
+    "failedCount": "{{count}} failed",
+    "acceptedFormats": "Accepted formats",
+    "questionsSubmitted": "{{count}} questions submitted",
+    "noContributionsForFilter": "No {{filter}} contributions",
+    "noQuestionsForFilter": "You have no {{filter}} questions right now",
+    "addFirstQuestion": "Add your first question",
+    "whyContribute": "Why contribute?",
+    "impactDescription": "Your questions help thousands of PSC aspirants prepare better. Approved questions earn you XP, boost your rank, and build your reputation in the community.",
+    "impactHelpOthers": "Help others study",
+    "impactEarnXp": "Earn XP & rank",
+    "impactBuildReputation": "Build reputation"
   },
   "community": {
     "liveFeed": "Live Feed",
@@ -497,8 +531,12 @@
       "saveFailed": "Failed to save profile. Please try again.",
       "subBranches": "{{count}} sub-branches",
       "loadBranchesFailed": "Failed to load branches: {{error}}",
-      "selectSubBranchSubtitle": "Choose a sub-branch under {{branch}}"
-    }
+      "selectSubBranchSubtitle": "Choose a sub-branch under {{branch}}",
+      "allGeneral": "All / General",
+      "skipSpecialization": "Skip specialization"
+    },
+    "appName": "PSC Exam Prep",
+    "appTagline": "Nepal Public Service Commission Exam Preparation"
   },
   "results": {
     "title": "Results",
@@ -564,10 +602,10 @@
   },
   "preferences": {
     "title": "Preferences",
-    "language": "Language / \u092d\u093e\u0937\u093e",
+    "language": "Language / भाषा",
     "english": "English",
     "englishSubtitle": "App interface in English",
-    "nepali": "\u0928\u0947\u092a\u093e\u0932\u0940",
+    "nepali": "नेपाली",
     "nepaliSubtitle": "App interface in Nepali",
     "notifications": "Notifications",
     "streakReminders": "Streak Reminders",
@@ -632,7 +670,8 @@
     "developerRole": "Full Stack Developer",
     "github": "GitHub",
     "madeInNepal": "Made in Nepal",
-    "copyright": "© 2025 PSC Exam Prep. All rights reserved."
+    "copyright": "© 2025 PSC Exam Prep. All rights reserved.",
+    "email": "Email"
   },
   "guidelines": {
     "title": "Contribution Guidelines",
@@ -677,5 +716,14 @@
     "downloadFailed": "Download failed",
     "questionsDownloaded": "{{count}} questions downloaded",
     "removeDownload": "Remove offline data"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "unexpected": "An unexpected error occurred."
+  },
+  "placeholders": {
+    "testCard": "Test card",
+    "questionCard": "Question card",
+    "exampleModal": "Example modal"
   }
 }

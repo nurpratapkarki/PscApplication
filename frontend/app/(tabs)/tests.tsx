@@ -29,12 +29,14 @@ const TestCard = React.memo(function TestCard({
   colors,
   lf,
   isPreferred,
+  t,
 }: {
   test: MockTest;
   onPress: () => void;
   colors: ReturnType<typeof import('../../hooks/useColors').useColors>;
   lf: ReturnType<typeof import('../../hooks/useLocalizedField').useLocalizedField>;
   isPreferred: boolean;
+  t: (key: string) => string;
 }) {
   const { icon: iconName, color: getColor } = getTestIcon(test.test_type);
   const iconBgColor = getColor(colors);
@@ -58,7 +60,7 @@ const TestCard = React.memo(function TestCard({
             {isPreferred && (
               <View style={[styles.preferredBadge, { backgroundColor: colors.primary + '15' }]}>
                 <MaterialCommunityIcons name="star" size={10} color={colors.primary} />
-                <Text style={[styles.preferredText, { color: colors.primary }]}>Your Branch</Text>
+                <Text style={[styles.preferredText, { color: colors.primary }]}>{t('tests.yourBranch')}</Text>
               </View>
             )}
           </View>
@@ -69,13 +71,13 @@ const TestCard = React.memo(function TestCard({
             <View style={styles.metaBadge}>
               <MaterialCommunityIcons name="help-circle-outline" size={14} color={colors.textSecondary} />
               <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                {test.total_questions} Questions
+                {test.total_questions} {t('tests.questions')}
               </Text>
             </View>
             <View style={styles.metaBadge}>
               <MaterialCommunityIcons name="clock-outline" size={14} color={colors.textSecondary} />
               <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                {test.duration_minutes} min
+                {test.duration_minutes} {t('tests.minutes')}
               </Text>
             </View>
           </View>
@@ -93,18 +95,20 @@ const FilterToggle = ({
   onChange,
   colors,
   counts,
+  t,
 }: {
   value: TestFilter;
   onChange: (v: TestFilter) => void;
   colors: ReturnType<typeof import('../../hooks/useColors').useColors>;
   counts: Record<TestFilter, number>;
+  t: (key: string) => string;
 }) => {
   const tabs: { key: TestFilter; label: string; icon: string }[] = [
-    { key: 'ALL', label: 'All', icon: 'view-grid' },
-    { key: 'MY_BRANCH', label: 'My Branch', icon: 'star' },
-    { key: 'OFFICIAL', label: 'Official', icon: 'shield-check' },
-    { key: 'COMMUNITY', label: 'Community', icon: 'account-group' },
-    { key: 'CUSTOM', label: 'My Tests', icon: 'account-circle' },
+    { key: 'ALL', label: t('common.allTests'), icon: 'view-grid' },
+    { key: 'MY_BRANCH', label: t('tests.myBranch'), icon: 'star' },
+    { key: 'OFFICIAL', label: t('tests.official'), icon: 'shield-check' },
+    { key: 'COMMUNITY', label: t('tests.community'), icon: 'account-group' },
+    { key: 'CUSTOM', label: t('tests.myTests'), icon: 'account-circle' },
   ];
 
   return (
@@ -299,6 +303,7 @@ export default function TestsScreen() {
           onChange={setFilter}
           colors={colors}
           counts={counts}
+          t={t}
         />
       </View>
 
@@ -313,10 +318,12 @@ export default function TestsScreen() {
               <MaterialCommunityIcons name="clipboard-search-outline" size={36} color={colors.textTertiary} />
             </View>
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              {searchQuery ? 'No results found' : 'No tests available'}
+              {searchQuery ? t('tests.noResults') : t('tests.noTestsAvailable')}
             </Text>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {searchQuery ? `No tests matching "${searchQuery}"` : 'Check back later'}
+              {searchQuery
+                ? t('tests.noResultsForQuery', { query: searchQuery })
+                : t('tests.checkBackLater')}
             </Text>
           </View>
         ) : (
@@ -331,6 +338,7 @@ export default function TestsScreen() {
                     colors={colors}
                     lf={lf}
                     isPreferred={isPreferred}
+                    t={t}
                   />
                   {/* Banner ad after every 8th test card */}
                   {(index + 1) % 8 === 0 && (

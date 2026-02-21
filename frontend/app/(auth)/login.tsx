@@ -85,9 +85,9 @@ export default function LoginScreen() {
             <View style={styles.brandLogo}>
               <MaterialCommunityIcons name="school" size={40} color={colors.primary} />
             </View>
-            <Text style={styles.brandName}>PSC Exam Prep</Text>
+            <Text style={styles.brandName}>{t('auth.appName')}</Text>
             <Text style={styles.brandTagline}>
-              {'नेपाल लोक सेवा आयोग परीक्षा तयारी'}
+              {t('auth.appTagline')}
             </Text>
           </View>
 

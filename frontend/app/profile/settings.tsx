@@ -42,7 +42,7 @@ export default function ProfileSettingsScreen() {
               clearAllApiCache();
               Alert.alert(t('settings.cacheCleared'));
             } catch {
-              Alert.alert(t('common.error'), 'Failed to clear cache');
+              Alert.alert(t('common.error'), t('settings.clearCacheFailed'));
             }
           },
         },

@@ -178,7 +178,7 @@ const TestDetailsScreen = () => {
           <View style={[styles.attemptBanner, { backgroundColor: colors.primary + '10' }]}>
             <MaterialCommunityIcons name="account-multiple" size={16} color={colors.primary} />
             <Text style={[styles.attemptText, { color: colors.primary }]}>
-              {test.attempt_count.toLocaleString()} people have taken this test
+              {t('tests.peopleTaken', { count: test.attempt_count.toLocaleString() })}
             </Text>
           </View>
         )}
@@ -188,9 +188,9 @@ const TestDetailsScreen = () => {
       {/* ── Bottom CTA ── */}
       <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <View style={styles.bottomMeta}>
-          <Text style={[styles.bottomMetaTop, { color: colors.textSecondary }]}>Ready to start?</Text>
+          <Text style={[styles.bottomMetaTop, { color: colors.textSecondary }]}>{t('tests.readyToStart')}</Text>
           <Text style={[styles.bottomMetaBottom, { color: colors.textPrimary }]}>
-            {test.total_questions} questions • {test.duration_minutes} min
+            {test.total_questions} {t('tests.questions')} • {test.duration_minutes} {t('tests.minutes')}
           </Text>
         </View>
         <TouchableOpacity

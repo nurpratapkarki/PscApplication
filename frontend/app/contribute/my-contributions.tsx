@@ -13,16 +13,17 @@ type FilterKey = 'all' | 'pending' | 'approved' | 'rejected';
 
 const getStatusMeta = (
   status: ContributionStatus,
-  colors: ReturnType<typeof useColors>
+  colors: ReturnType<typeof useColors>,
+  t: (key: string) => string
 ) => {
   switch (status) {
     case 'APPROVED':
     case 'MADE_PUBLIC':
-      return { color: colors.success, icon: 'check-circle', label: status === 'MADE_PUBLIC' ? 'Public' : 'Approved' };
+      return { color: colors.success, icon: 'check-circle', label: status === 'MADE_PUBLIC' ? t('contribute.statusPublic') : t('contribute.statusApproved') };
     case 'REJECTED':
-      return { color: colors.error, icon: 'close-circle', label: 'Rejected' };
+      return { color: colors.error, icon: 'close-circle', label: t('contribute.statusRejected') };
     default:
-      return { color: colors.warning, icon: 'clock-outline', label: 'Pending' };
+      return { color: colors.warning, icon: 'clock-outline', label: t('contribute.statusPending') };
   }
 };
 
@@ -36,10 +37,10 @@ function ContributionCard({
   contribution: Contribution;
   onPress: () => void;
   colors: ReturnType<typeof useColors>;
-  t: (k: string) => string;
+  t: (k: string, opts?: any) => string;
   dateLocale: string;
 }) {
-  const meta = getStatusMeta(contribution.status, colors);
+  const meta = getStatusMeta(contribution.status, colors, t);
   const date = new Date(contribution.created_at).toLocaleDateString(dateLocale, {
     month: 'short', day: 'numeric', year: 'numeric',
   });
@@ -83,7 +84,7 @@ function ContributionCard({
 
       <View style={cardStyles.footer}>
         <Text style={[cardStyles.footerAction, { color: colors.primary }]}>
-          {contribution.status === 'REJECTED' ? 'Edit & resubmit' : 'View details'} →
+          {contribution.status === 'REJECTED' ? t('contribute.resubmitForReview') : t('profile.viewDetails')} →
         </Text>
       </View>
     </TouchableOpacity>
@@ -153,10 +154,10 @@ export default function MyContributionsScreen() {
   });
 
   const filterTabs: { key: FilterKey; label: string; color: string }[] = [
-    { key: 'all', label: 'All', color: colors.primary },
-    { key: 'pending', label: 'Pending', color: colors.warning },
-    { key: 'approved', label: 'Approved', color: colors.success },
-    { key: 'rejected', label: 'Rejected', color: colors.error },
+    { key: 'all', label: t('contribute.filterAll'), color: colors.primary },
+    { key: 'pending', label: t('contribute.filterPending'), color: colors.warning },
+    { key: 'approved', label: t('contribute.filterApproved'), color: colors.success },
+    { key: 'rejected', label: t('contribute.filterRejected'), color: colors.error },
   ];
 
   return (
@@ -173,8 +174,8 @@ export default function MyContributionsScreen() {
             <MaterialCommunityIcons name="arrow-left" size={22} color="#fff" />
           </TouchableOpacity>
           <View style={styles.heroTitleWrap}>
-            <Text style={styles.heroTitle}>My Contributions</Text>
-            <Text style={styles.heroSubtitle}>{counts.all} questions submitted</Text>
+            <Text style={styles.heroTitle}>{t('contribute.myContributions')}</Text>
+            <Text style={styles.heroSubtitle}>{t('contribute.questionsSubmitted', { count: counts.all })}</Text>
           </View>
           <TouchableOpacity
             style={styles.heroAddBtn}
@@ -187,9 +188,9 @@ export default function MyContributionsScreen() {
         {/* Summary pills */}
         <View style={styles.summaryRow}>
           {[
-            { label: 'Approved', value: counts.approved, color: colors.success },
-            { label: 'Pending', value: counts.pending, color: colors.warning },
-            { label: 'Rejected', value: counts.rejected, color: colors.error },
+            { label: t('contribute.filterApproved'), value: counts.approved, color: colors.success },
+            { label: t('contribute.filterPending'), value: counts.pending, color: colors.warning },
+            { label: t('contribute.filterRejected'), value: counts.rejected, color: colors.error },
           ].map((item, i) => (
             <View key={i} style={[styles.summaryPill, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
               <Text style={styles.summaryValue}>{item.value}</Text>
@@ -250,12 +251,14 @@ export default function MyContributionsScreen() {
             <MaterialCommunityIcons name="file-document-outline" size={36} color={colors.textTertiary} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-            {filter === 'all' ? 'No contributions yet' : `No ${filter} contributions`}
+            {filter === 'all'
+              ? t('contribute.noContributions')
+              : t('contribute.noContributionsForFilter', { filter: t(`contribute.filter${filter[0].toUpperCase()}${filter.slice(1)}`) })}
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
             {filter === 'all'
-              ? 'Your submitted questions will appear here'
-              : `You have no ${filter} questions right now`}
+              ? t('contribute.noContributionsYet')
+              : t('contribute.noQuestionsForFilter', { filter: t(`contribute.filter${filter[0].toUpperCase()}${filter.slice(1)}`) })}
           </Text>
           {filter === 'all' && (
             <TouchableOpacity
@@ -263,7 +266,7 @@ export default function MyContributionsScreen() {
               onPress={() => router.push('/contribute/add-question')}
             >
               <MaterialCommunityIcons name="plus" size={16} color="#fff" />
-              <Text style={styles.emptyActionText}>Add your first question</Text>
+              <Text style={styles.emptyActionText}>{t('contribute.addFirstQuestion')}</Text>
             </TouchableOpacity>
           )}
         </View>

@@ -399,7 +399,7 @@ export default function AddQuestionScreen() {
                     onPress={() => { setSelectedSubBranch(null); setSelectedCategory(null); }}
                   >
                     <Text style={[chipStyles.chipText, { color: selectedSubBranch === null ? colors.primary : colors.textSecondary }]}>
-                      All
+                      {t('contribute.filterAll')}
                     </Text>
                   </TouchableOpacity>
                   {selectedBranch.sub_branches?.map(sb => (
@@ -430,7 +430,7 @@ export default function AddQuestionScreen() {
                 <View style={{ gap: 12 }}>
                   {groupedCategories.universal.length > 0 && (
                     <View>
-                      <Text style={[styles.catGroupLabel, { color: colors.info }]}>Common Subjects</Text>
+                      <Text style={[styles.catGroupLabel, { color: colors.info }]}>{t('contribute.commonSubjects')}</Text>
                       <ChipGroup
                         items={groupedCategories.universal}
                         selected={selectedCategory}
@@ -444,7 +444,7 @@ export default function AddQuestionScreen() {
                   )}
                   {groupedCategories.branch.length > 0 && (
                     <View>
-                      <Text style={[styles.catGroupLabel, { color: colors.accent }]}>Service Specific</Text>
+                      <Text style={[styles.catGroupLabel, { color: colors.accent }]}>{t('contribute.serviceSpecific')}</Text>
                       <ChipGroup
                         items={groupedCategories.branch}
                         selected={selectedCategory}
@@ -458,7 +458,7 @@ export default function AddQuestionScreen() {
                   )}
                   {groupedCategories.subbranch.length > 0 && (
                     <View>
-                      <Text style={[styles.catGroupLabel, { color: colors.secondary }]}>Specialization</Text>
+                      <Text style={[styles.catGroupLabel, { color: colors.secondary }]}>{t('contribute.specialization')}</Text>
                       <ChipGroup
                         items={groupedCategories.subbranch}
                         selected={selectedCategory}
@@ -593,14 +593,14 @@ export default function AddQuestionScreen() {
                     <View style={styles.resultRow}>
                       <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
                       <Text style={[styles.resultText, { color: colors.success }]}>
-                        {uploadProgress.result.uploaded_count} questions uploaded
+                        {t('contribute.questionsUploaded', { count: uploadProgress.result.uploaded_count })}
                       </Text>
                     </View>
                     {uploadProgress.result.failed_count > 0 && (
                       <View style={styles.resultRow}>
                         <MaterialCommunityIcons name="alert-circle" size={16} color={colors.error} />
                         <Text style={[styles.resultText, { color: colors.error }]}>
-                          {uploadProgress.result.failed_count} failed
+                          {t('contribute.failedCount', { count: uploadProgress.result.failed_count })}
                         </Text>
                       </View>
                     )}
@@ -612,7 +612,7 @@ export default function AddQuestionScreen() {
               <View style={[styles.infoBox, { backgroundColor: colors.info + '10', borderColor: colors.info + '30' }]}>
                 <MaterialCommunityIcons name="information-outline" size={16} color={colors.info} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.infoTitle, { color: colors.info }]}>Accepted formats</Text>
+                  <Text style={[styles.infoTitle, { color: colors.info }]}>{t('contribute.acceptedFormats')}</Text>
                   <Text style={[styles.infoText, { color: colors.textSecondary }]}>
                     {t('contribute.fileFormatPdf')} • {t('contribute.fileFormatExcel')} • {t('contribute.fileFormatMax')}
                   </Text>

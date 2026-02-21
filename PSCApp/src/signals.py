@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.db.models import Avg, Count, Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -66,31 +67,13 @@ def handle_user_answer_save(sender, instance, created, **kwargs):
     """
     Update Question stats and UserProgress when an answer is saved.
     """
-    if not created and not instance.is_marked_for_review:
-        # Assuming we only update stats on initial answer or if logical "completion" updates happen.
-        # But UserAnswer might be updated (e.g. changing answer).
-        # For simplicity, we might only want to increment counters if it's a "final" submission of that answer.
-        # However, simplistic incrementing on every save can lead to double counting if not careful.
-        # Let's rely on the fact that UserAnswer suggests a distinct interaction.
-        pass
-
-    # We need to act carefully. If a user changes their answer, we might need to decrement old stats and increment new.
-    # But `UserAnswer` doesn't easily track "previous" state unless we query before save or use dirty fields.
-    # For now, let's assume `times_attempted` increments once per UserAnswer creation.
-
     question = instance.question
-
-    if created:
-        question.times_attempted += 1
-
-    if instance.is_correct:
-        # Note: If user changes from incorrect to correct, we should handle that.
-        # This simple logic might arguably be better placed in a service layer, but per requirements:
-        if created or (
-            not created and instance.is_correct
-        ):  # A bit loose, but keeps it moving
-            question.times_correct += 1
-
+    question_counts = question.user_responses.filter(is_skipped=False).aggregate(
+        attempted=Count("id"),
+        correct=Count("id", filter=Q(is_correct=True)),
+    )
+    question.times_attempted = question_counts["attempted"] or 0
+    question.times_correct = question_counts["correct"] or 0
     question.save(update_fields=["times_attempted", "times_correct"])
 
     # Update User Progress
@@ -98,20 +81,47 @@ def handle_user_answer_save(sender, instance, created, **kwargs):
         user_progress, _ = UserProgress.objects.get_or_create(
             user=instance.user_attempt.user, category=instance.question.category
         )
-        # Re-calc average logic is complex in signal without previous state.
-        # Calling the model method which handles increments
-        # We need time_taken. If null, assume 0 or 30s?
-        time_taken = instance.time_taken_seconds or 30
-        user_progress.update_progress(instance.is_correct, time_taken)
+        progress_counts = UserAnswer.objects.filter(
+            user_attempt__user=instance.user_attempt.user,
+            question__category=instance.question.category,
+            is_skipped=False,
+        ).aggregate(
+            attempted=Count("id"),
+            correct=Count("id", filter=Q(is_correct=True)),
+            avg_time=Avg("time_taken_seconds"),
+        )
+        attempted = progress_counts["attempted"] or 0
+        correct = progress_counts["correct"] or 0
+        user_progress.questions_attempted = attempted
+        user_progress.correct_answers = correct
+        user_progress.accuracy_percentage = (correct / attempted) * 100 if attempted else 0
+        user_progress.average_time_seconds = (
+            int(progress_counts["avg_time"]) if progress_counts["avg_time"] is not None else None
+        )
+        user_progress.last_attempted_date = instance.updated_at
+        user_progress.save(
+            update_fields=[
+                "questions_attempted",
+                "correct_answers",
+                "accuracy_percentage",
+                "average_time_seconds",
+                "last_attempted_date",
+            ]
+        )
 
     # Update User Statistics (Questions Answered counting)
     user_stats, _ = UserStatistics.objects.get_or_create(
         user=instance.user_attempt.user
     )
-    if created:
-        user_stats.questions_answered += 1
-        if instance.is_correct:
-            user_stats.correct_answers += 1
+    user_counts = UserAnswer.objects.filter(
+        user_attempt__user=instance.user_attempt.user,
+        is_skipped=False,
+    ).aggregate(
+        answered=Count("id"),
+        correct=Count("id", filter=Q(is_correct=True)),
+    )
+    user_stats.questions_answered = user_counts["answered"] or 0
+    user_stats.correct_answers = user_counts["correct"] or 0
 
     # Update daily streak on any activity
     user_stats.update_streak()

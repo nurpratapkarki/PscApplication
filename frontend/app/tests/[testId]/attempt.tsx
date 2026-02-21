@@ -493,7 +493,7 @@ const TestAttemptScreen = () => {
             onPress={() => {}}
           >
             <Text style={[styles.navSheetTitle, { color: colors.textPrimary }]}>
-              Questions
+              {t('tests.questions')}
             </Text>
             <View style={styles.navGrid}>
               {testData.test_questions?.map((_, index) => {
@@ -536,15 +536,15 @@ const TestAttemptScreen = () => {
             <View style={styles.navLegend}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-                <Text style={[styles.legendText, { color: colors.textSecondary }]}>Current</Text>
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>{t('tests.current')}</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: colors.success + '20', borderWidth: 1, borderColor: colors.success }]} />
-                <Text style={[styles.legendText, { color: colors.textSecondary }]}>Answered</Text>
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>{t('analytics.answered')}</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: colors.surfaceVariant }]} />
-                <Text style={[styles.legendText, { color: colors.textSecondary }]}>Unanswered</Text>
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>{t('tests.unanswered')}</Text>
               </View>
             </View>
           </TouchableOpacity>

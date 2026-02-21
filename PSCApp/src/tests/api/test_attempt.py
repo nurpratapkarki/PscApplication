@@ -8,6 +8,7 @@ from rest_framework.test import APIClient, APITestCase
 from src.models.branch import Branch, Category
 from src.models.mocktest import MockTest, MockTestQuestion
 from src.models.question_answer import Answer, Question
+from src.models.user_stats import UserStatistics
 
 
 class AttemptApiTests(APITestCase):
@@ -80,3 +81,48 @@ class AttemptApiTests(APITestCase):
             float(response.data["score_obtained"]), 2.0
         )  # 2 marks for correct answer
         self.assertEqual(response.data["status"], "COMPLETED")
+
+    def test_skipped_answer_does_not_increment_questions_answered(self):
+        attempt_id = self.test_start_attempt()
+
+        ans_url = reverse("useranswer-list")
+        payload = {
+            "user_attempt": attempt_id,
+            "question": self.question.id,
+            "selected_answer": None,
+            "is_skipped": True,
+        }
+        response = self.client.post(ans_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["is_skipped"])
+
+        stats = UserStatistics.objects.get(user=self.user)
+        self.assertEqual(stats.questions_answered, 0)
+        self.assertEqual(stats.correct_answers, 0)
+
+    def test_changing_skipped_to_answered_updates_statistics(self):
+        attempt_id = self.test_start_attempt()
+        ans_url = reverse("useranswer-list")
+
+        skipped_payload = {
+            "user_attempt": attempt_id,
+            "question": self.question.id,
+            "selected_answer": None,
+            "is_skipped": True,
+        }
+        response = self.client.post(ans_url, skipped_payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        answered_payload = {
+            "user_attempt": attempt_id,
+            "question": self.question.id,
+            "selected_answer": self.correct_ans.id,
+        }
+        response = self.client.post(ans_url, answered_payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["is_skipped"])
+        self.assertTrue(response.data["is_correct"])
+
+        stats = UserStatistics.objects.get(user=self.user)
+        self.assertEqual(stats.questions_answered, 1)
+        self.assertEqual(stats.correct_answers, 1)

@@ -126,17 +126,16 @@ export default function ContributionDashboardScreen() {
         <View style={[styles.impactCard, { backgroundColor: colors.primary + '08', borderColor: colors.primary + '25' }]}>
           <View style={styles.impactHeader}>
             <MaterialCommunityIcons name="star-circle" size={20} color={colors.primary} />
-            <Text style={[styles.impactTitle, { color: colors.primary }]}>Why contribute?</Text>
+            <Text style={[styles.impactTitle, { color: colors.primary }]}>{t('contribute.whyContribute')}</Text>
           </View>
           <Text style={[styles.impactText, { color: colors.textSecondary }]}>
-            Your questions help thousands of PSC aspirants prepare better. Approved questions
-            earn you XP, boost your rank, and build your reputation in the community.
+            {t('contribute.impactDescription')}
           </Text>
           <View style={styles.impactStats}>
             {[
-              { icon: 'account-group', label: 'Help others study' },
-              { icon: 'star-circle', label: 'Earn XP & rank' },
-              { icon: 'certificate', label: 'Build reputation' },
+              { icon: 'account-group', label: t('contribute.impactHelpOthers') },
+              { icon: 'star-circle', label: t('contribute.impactEarnXp') },
+              { icon: 'certificate', label: t('contribute.impactBuildReputation') },
             ].map((item, i) => (
               <View key={i} style={styles.impactStat}>
                 <MaterialCommunityIcons name={item.icon as any} size={16} color={colors.primary} />

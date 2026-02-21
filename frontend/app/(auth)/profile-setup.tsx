@@ -248,10 +248,10 @@ export default function ProfileSetupScreen() {
               </View>
               <View style={styles.subBranchText}>
                 <Text style={[styles.subBranchName, { color: colors.textPrimary }]}>
-                  All / General
+                  {t('auth.profileSetup.allGeneral')}
                 </Text>
                 <Text style={[styles.subBranchNameNp, { color: colors.textSecondary }]}>
-                  Skip specialization
+                  {t('auth.profileSetup.skipSpecialization')}
                 </Text>
               </View>
               {selectedSubBranch === null && (

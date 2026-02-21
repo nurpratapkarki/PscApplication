@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
+import i18next from "i18next";
 
 export interface TestSubmitDialogProps {
   visible: boolean;
@@ -18,14 +19,14 @@ export function TestSubmitDialog({
 
   return (
     <View>
-      <Text>Submit test?</Text>
+      <Text>{i18next.t("tests.finishConfirm")}</Text>
       {children}
       <View>
         <TouchableOpacity onPress={onCancel}>
-          <Text>Cancel</Text>
+          <Text>{i18next.t("common.cancel")}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onConfirm}>
-          <Text>Submit</Text>
+          <Text>{i18next.t("common.submit")}</Text>
         </TouchableOpacity>
       </View>
     </View>
