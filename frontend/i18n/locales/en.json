@@ -39,6 +39,7 @@
     "mockTest": "Mock Test",
     "contribute": "Contribute",
     "leaderboard": "Leaderboard",
+    "notes": "Notes",
     "continueLearning": "Continue Learning",
     "pickUpWhereLeft": "Pick up where you left off",
     "resume": "Resume",
@@ -48,7 +49,8 @@
     "goodAfternoon": "Good afternoon",
     "goodEvening": "Good evening",
     "testsDone": "Tests Done",
-    "startPracticing": "Start Practicing"
+    "startPracticing": "Start Practicing",
+    "notesDesc": "Read approved study notes"
   },
   "practice": {
     "selectCategory": "Select Category",

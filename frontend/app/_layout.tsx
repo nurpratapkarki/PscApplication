@@ -11,6 +11,7 @@ import { usePushNotifications } from "../hooks/usePushNotifications";
 import { useNetwork } from "../hooks/useNetwork";
 import mobileAds from 'react-native-google-mobile-ads';
 import { interstitialAdService } from '../services/ads/interstitialAd';
+import { rewardedInterstitialAdService } from "../services/ads/rewardedInterstitialAd";
 
 export default function RootLayout() {
   const language = useSettingsStore((state) => state.language);
@@ -24,6 +25,7 @@ export default function RootLayout() {
     .initialize()
     .then(() => {
       interstitialAdService.preload();
+      rewardedInterstitialAdService.preload();
     })
     .catch(() => {});
 }, []);

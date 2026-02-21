@@ -9,6 +9,13 @@ export const AD_UNIT_IDS = {
         android: 'ca-app-pub-1369564684863351/7341473662',
         default: TestIds.INTERSTITIAL,
       })!,
+  noteRewarded: __DEV__
+    ? TestIds.REWARDED_INTERSTITIAL
+    : Platform.select({
+        ios: 'ca-app-pub-1369564684863351/2291255131',
+        android: 'ca-app-pub-1369564684863351/2291255131',
+        default: TestIds.REWARDED_INTERSTITIAL,
+      })!,
   banner: __DEV__
     ? TestIds.ADAPTIVE_BANNER
     : Platform.select({

@@ -31,6 +31,13 @@ export default function ContributionDashboardScreen() {
       route: '/contribute/my-contributions',
     },
     {
+      icon: 'note-multiple' as const,
+      title: t('notes.library', { defaultValue: 'Notes Library' }),
+      subtitle: t('notes.librarySubtitle', { defaultValue: 'Read contributed notes in-app' }),
+      color: colors.warning,
+      route: '/profile/notes',
+    },
+    {
       icon: 'book-open-page-variant' as const,
       title: t('contribute.guidelines'),
       subtitle: t('contribute.guidelinesSubtitle'),

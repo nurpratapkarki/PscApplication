@@ -12,13 +12,20 @@ import { useTranslation } from 'react-i18next';
 import { usePaginatedApi } from '../../hooks/usePaginatedApi';
 import { useApi } from '../../hooks/useApi';
 import { Branch, Category } from '../../types/category.types';
-import { createQuestion, bulkUploadQuestions, BulkUploadResponse } from '../../services/api/questions';
+import { createQuestion } from '../../services/api/questions';
+import { createNote } from '../../services/api/notes';
 import { validateUploadFile, VALID_UPLOAD_MIME_TYPES } from '../../utils/fileValidation';
 import { useColors } from '../../hooks/useColors';
 import { useLocalizedField } from '../../hooks/useLocalizedField';
 
 interface AnswerOption { text: string; isCorrect: boolean; }
 type UploadMode = 'single' | 'bulk';
+interface UploadResultSummary {
+  success: boolean;
+  uploaded_count: number;
+  failed_count: number;
+  errors?: string[];
+}
 
 // ── Reusable chip selector ────────────────────────────────────────────────────
 function ChipGroup<T>({
@@ -219,7 +226,9 @@ export default function AddQuestionScreen() {
   const [explanation, setExplanation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<{ uploading: boolean; result: BulkUploadResponse | null }>({
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteDescription, setNoteDescription] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<{ uploading: boolean; result: UploadResultSummary | null }>({
     uploading: false, result: null,
   });
 
@@ -286,6 +295,10 @@ export default function AddQuestionScreen() {
         const validation = validateUploadFile({ name: file.name, type: file.mimeType, size: file.size });
         if (!validation.isValid) return Alert.alert(t('contribute.invalidFileTitle'), validation.error || t('contribute.invalidFileMessage'));
         setSelectedFile(file);
+        if (!noteTitle.trim()) {
+          const inferred = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim();
+          setNoteTitle(inferred.slice(0, 255));
+        }
         setUploadProgress({ uploading: false, result: null });
       }
     } catch { Alert.alert(t('common.error'), t('contribute.filePickFailed')); }
@@ -294,18 +307,61 @@ export default function AddQuestionScreen() {
   const handleBulkUpload = async () => {
     if (!selectedFile) return Alert.alert(t('contribute.noFileSelectedTitle'), t('contribute.noFileSelectedMessage'));
     if (!selectedCategory) return Alert.alert(t('contribute.missingCategoryTitle'), t('contribute.missingCategoryForBulk'));
+    if (!noteTitle.trim()) {
+      return Alert.alert(
+        t('contribute.missingTitle', { defaultValue: 'Missing title' }),
+        t('contribute.noteTitleRequired', { defaultValue: 'Please provide a title for this note.' }),
+      );
+    }
+
+    // DocumentPicker may omit `size` on some Android devices.
+    // Re-validate with a detected size before upload so users get a clear in-app error.
+    let detectedSize = selectedFile.size;
+    if (typeof detectedSize !== 'number') {
+      try {
+        const fileResponse = await fetch(selectedFile.uri);
+        const fileBlob = await fileResponse.blob();
+        detectedSize = fileBlob.size;
+      } catch {
+        detectedSize = undefined;
+      }
+    }
+    const uploadValidation = validateUploadFile({
+      name: selectedFile.name,
+      type: selectedFile.mimeType,
+      size: detectedSize,
+    });
+    if (!uploadValidation.isValid) {
+      return Alert.alert(
+        t('contribute.invalidFileTitle'),
+        uploadValidation.error || t('contribute.invalidFileMessage'),
+      );
+    }
 
     setUploadProgress({ uploading: true, result: null });
     try {
-      const response = await fetch(selectedFile.uri);
-      const blob = await response.blob();
-      const file = new File([blob], selectedFile.name, { type: selectedFile.mimeType || 'application/octet-stream' });
-      const result = await bulkUploadQuestions(file, selectedCategory.id);
+      await createNote({
+        title_en: noteTitle.trim(),
+        title_np: noteTitle.trim(),
+        description_en: noteDescription.trim(),
+        description_np: noteDescription.trim(),
+        category: selectedCategory.id,
+        document: {
+          uri: selectedFile.uri,
+          name: selectedFile.name,
+          type: selectedFile.mimeType || 'application/octet-stream',
+        },
+      });
+      const result: UploadResultSummary = {
+        success: true,
+        uploaded_count: 1,
+        failed_count: 0,
+      };
       setUploadProgress({ uploading: false, result });
       if (result.success) {
         Alert.alert(
-          t('contribute.uploadCompleteTitle'),
-          t('contribute.uploadCompleteMessage', { uploaded: result.uploaded_count, failed: result.failed_count }),
+          t('contribute.uploadCompleteTitle', { defaultValue: 'Upload complete' }),
+          t('contribute.noteUploadCompleteMessage', { defaultValue: 'Your note has been submitted for review.' }),
           [{ text: t('common.ok'), onPress: () => router.back() }]
         );
       } else {
@@ -360,7 +416,9 @@ export default function AddQuestionScreen() {
                   styles.modeBtnText,
                   { color: active ? colors.primary : colors.textSecondary },
                 ]}>
-                  {mode === 'single' ? t('contribute.singleQuestion') : t('contribute.bulkUpload')}
+                  {mode === 'single'
+                    ? t('contribute.singleQuestion')
+                    : t('contribute.notesUpload', { defaultValue: 'Notes Upload' })}
                 </Text>
               </TouchableOpacity>
             );
@@ -544,10 +602,36 @@ export default function AddQuestionScreen() {
           ) : (
             <>
               {/* ── Bulk upload ── */}
-              <SectionCard title={t('contribute.uploadFileTitle')} icon="file-upload-outline" iconColor={colors.accent} colors={colors}>
+              <SectionCard
+                title={t('contribute.uploadNoteTitle', { defaultValue: 'Upload Study Note' })}
+                icon="file-upload-outline"
+                iconColor={colors.accent}
+                colors={colors}
+              >
                 <Text style={[styles.subLabel, { color: colors.textSecondary, marginBottom: 12 }]}>
-                  {t('contribute.uploadFileHint')}
+                  {t('contribute.uploadNoteHint', { defaultValue: 'Upload PDF or Word notes for admin review.' })}
                 </Text>
+
+                <TextInput
+                  mode="outlined"
+                  placeholder={t('contribute.noteTitlePlaceholder', { defaultValue: 'Note title' })}
+                  value={noteTitle}
+                  onChangeText={setNoteTitle}
+                  style={[styles.textArea, { backgroundColor: colors.surface, marginBottom: 10 }]}
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                />
+                <TextInput
+                  mode="outlined"
+                  placeholder={t('contribute.noteDescriptionPlaceholder', { defaultValue: 'Short description (optional)' })}
+                  value={noteDescription}
+                  onChangeText={setNoteDescription}
+                  multiline
+                  numberOfLines={3}
+                  style={[styles.textArea, { backgroundColor: colors.surface, marginBottom: 12 }]}
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                />
 
                 <TouchableOpacity
                   style={[
@@ -574,7 +658,7 @@ export default function AddQuestionScreen() {
                   )}
                   {!selectedFile && (
                     <Text style={[styles.filePickerSub, { color: colors.textTertiary }]}>
-                      PDF, Excel, CSV up to 10MB
+                      PDF, DOC, DOCX up to 10MB
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -593,7 +677,10 @@ export default function AddQuestionScreen() {
                     <View style={styles.resultRow}>
                       <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
                       <Text style={[styles.resultText, { color: colors.success }]}>
-                        {t('contribute.questionsUploaded', { count: uploadProgress.result.uploaded_count })}
+                        {t('contribute.notesUploaded', {
+                          count: uploadProgress.result.uploaded_count,
+                          defaultValue: '{{count}} note uploaded',
+                        })}
                       </Text>
                     </View>
                     {uploadProgress.result.failed_count > 0 && (
@@ -614,7 +701,11 @@ export default function AddQuestionScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.infoTitle, { color: colors.info }]}>{t('contribute.acceptedFormats')}</Text>
                   <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                    {t('contribute.fileFormatPdf')} • {t('contribute.fileFormatExcel')} • {t('contribute.fileFormatMax')}
+                    {t('contribute.fileFormatPdf')} •
+                    {' '}
+                    {t('contribute.fileFormatWord', { defaultValue: 'Word (.doc, .docx)' })}
+                    {' '}
+                    • {t('contribute.fileFormatMax')}
                   </Text>
                 </View>
               </View>
@@ -631,7 +722,7 @@ export default function AddQuestionScreen() {
               { backgroundColor: isLoading ? colors.primary + '60' : colors.primary },
             ]}
             onPress={uploadMode === 'single' ? handleSingleSubmit : handleBulkUpload}
-            disabled={isLoading || (uploadMode === 'bulk' && !selectedFile)}
+            disabled={isLoading || (uploadMode === 'bulk' && (!selectedFile || !noteTitle.trim()))}
             activeOpacity={0.85}
           >
             {isLoading ? (
@@ -644,7 +735,9 @@ export default function AddQuestionScreen() {
               />
             )}
             <Text style={styles.submitBtnText}>
-              {uploadMode === 'single' ? t('contribute.submitForReview') : t('contribute.uploadQuestions')}
+              {uploadMode === 'single'
+                ? t('contribute.submitForReview')
+                : t('contribute.uploadNote', { defaultValue: 'Upload Note' })}
             </Text>
           </TouchableOpacity>
         </View>

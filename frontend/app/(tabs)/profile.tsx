@@ -295,6 +295,12 @@ export default function ProfileScreen() {
 
   const appItems: MenuItem[] = [
     {
+      icon: 'book-open-page-variant',
+      title: t('notes.library', { defaultValue: 'Notes Library' }),
+      subtitle: t('notes.librarySubtitle', { defaultValue: 'Read contributed notes in-app' }),
+      route: '/profile/notes',
+    },
+    {
       icon: 'cog',
       title: t('profile.settings'),
       subtitle: t('profile.settingsSubtitle'),

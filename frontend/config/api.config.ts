@@ -35,6 +35,11 @@ export const API_ENDPOINTS = {
 	  reports: "/api/reports/",
 	  reportDetail: (id: number | string) => `/api/reports/${id}/`,
 	},
+	notes: {
+	  list: "/api/notes/",
+	  detail: (id: number | string) => `/api/notes/${id}/`,
+	  requestAccess: (id: number | string) => `/api/notes/${id}/request-access/`,
+	},
 	mockTests: {
 	  list: "/api/mock-tests/",
 	  detail: (id: number | string) => `/api/mock-tests/${id}/`,

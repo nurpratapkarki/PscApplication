@@ -58,6 +58,14 @@ const quickActions: QuickAction[] = [
     colorKey: 'warning',
     route: '/(tabs)/leaderboard',
   },
+  {
+    id: '5',
+    titleKey: 'home.notes',
+    descKey: 'home.notesDesc',
+    icon: 'note-multiple',
+    colorKey: 'secondary',
+    route: '/profile/notes',
+  },
 ];
 
 // ── Greeting based on time ────────────────────────────────────────────────────

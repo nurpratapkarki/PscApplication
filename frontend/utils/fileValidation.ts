@@ -1,20 +1,20 @@
-// File validation utilities for bulk upload
+// File validation utilities for note uploads
 
-// Valid MIME types for bulk upload
+// Valid MIME types for note uploads
 export const VALID_UPLOAD_MIME_TYPES = [
   "application/pdf",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-excel",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ] as const;
 
-// Valid file extensions for bulk upload
-export const VALID_UPLOAD_EXTENSIONS = [".pdf", ".xlsx", ".xls"] as const;
+// Valid file extensions for note uploads
+export const VALID_UPLOAD_EXTENSIONS = [".pdf", ".doc", ".docx"] as const;
 
 // Maximum file size in bytes (10MB)
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 /**
- * Validates if a file is a valid upload file (PDF or Excel)
+ * Validates if a file is a valid note upload file (PDF or Word)
  * @param file - The file to validate
  * @returns An object with isValid boolean and error message if invalid
  */
@@ -29,7 +29,7 @@ export function validateUploadFile(file: { name: string; type?: string; size?: n
   if (!hasValidExtension && !hasValidType) {
     return {
       isValid: false,
-      error: "Invalid file type. Only PDF (.pdf) or Excel (.xlsx, .xls) files are allowed.",
+      error: "Invalid file type. Only PDF (.pdf) or Word (.doc, .docx) files are allowed.",
     };
   }
 
@@ -46,9 +46,9 @@ export function validateUploadFile(file: { name: string; type?: string; size?: n
 /**
  * Gets human-readable file type from file name
  */
-export function getFileType(fileName: string): "pdf" | "excel" | "unknown" {
+export function getFileType(fileName: string): "pdf" | "word" | "unknown" {
   const name = fileName.toLowerCase();
   if (name.endsWith(".pdf")) return "pdf";
-  if (name.endsWith(".xlsx") || name.endsWith(".xls")) return "excel";
+  if (name.endsWith(".doc") || name.endsWith(".docx")) return "word";
   return "unknown";
 }

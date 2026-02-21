@@ -176,14 +176,15 @@ export async function deleteQuestion(
 	});
 }
 
-// ---- Bulk Question Upload (PDF/Excel) ----
+// ---- Bulk Upload (now used for note contributions) ----
 
 export interface BulkUploadResponse {
 	success: boolean;
 	uploaded_count: number;
 	failed_count: number;
 	errors?: string[];
-	questions?: Question[];
+	note_id?: number;
+	detail?: string;
 }
 
 export interface BulkUploadProgress {
@@ -194,11 +195,11 @@ export interface BulkUploadProgress {
 }
 
 /**
- * Upload questions in bulk from a PDF or Excel file.
- * Only valid PDF (.pdf) or Excel (.xlsx, .xls) files are accepted.
+ * Upload a note file for review via the bulk-upload endpoint.
+ * Allowed files: PDF (.pdf), Word (.doc, .docx), max 10MB.
  * 
- * @param file - The PDF or Excel file containing questions
- * @param categoryId - The category to assign the questions to
+ * @param file - The note file to upload
+ * @param categoryId - The category to assign the note to
  * @param token - Optional auth token
  */
 export async function bulkUploadQuestions(
