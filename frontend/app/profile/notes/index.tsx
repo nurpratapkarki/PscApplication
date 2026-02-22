@@ -130,8 +130,8 @@ function NoteCard({
               <MaterialCommunityIcons name="book-open-variant" size={13} color="#fff" />
               <Text style={cardStyles.openBtnText}>{t("notes.open", { defaultValue: "Read" })}</Text>
             </TouchableOpacity>
-
-            {!downloaded ? (
+            {/* removed for just in case haha */}
+            {/* {!downloaded ? (
               <TouchableOpacity
                 style={[cardStyles.saveBtn, { borderColor: colors.border }]}
                 onPress={onDownload}
@@ -142,7 +142,7 @@ function NoteCard({
               <View style={[cardStyles.saveBtn, { borderColor: colors.success + "40", backgroundColor: colors.success + "10" }]}>
                 <MaterialCommunityIcons name="bookmark-check" size={14} color={colors.success} />
               </View>
-            )}
+            )} */}
           </View>
         </View>
       </View>
@@ -220,19 +220,26 @@ export default function NotesLibraryScreen() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const { data: notes, status, refetch } = usePaginatedApi<Note>("/api/notes/?ordering=-created_at");
+  const { data: notes, status, refetch } = usePaginatedApi<Note>(
+    "/api/notes/?status=APPROVED&ordering=-created_at",
+  );
+
+  const visibleNotes = useMemo(
+    () => (notes || []).filter((note) => note.status === "APPROVED" && note.is_public),
+    [notes],
+  );
 
   // Derive unique categories from notes
   const categories = useMemo(() => {
     const cats = new Set<string>();
-    (notes || []).forEach((n) => {
+    visibleNotes.forEach((n) => {
       if (n.category_name) cats.add(n.category_name);
     });
     return Array.from(cats).sort();
-  }, [notes]);
+  }, [visibleNotes]);
 
   const filteredNotes = useMemo(() => {
-    let result = [...(notes || [])].sort((a, b) => {
+    let result = [...visibleNotes].sort((a, b) => {
       if (a.status === "APPROVED" && b.status !== "APPROVED") return -1;
       if (a.status !== "APPROVED" && b.status === "APPROVED") return 1;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -253,12 +260,9 @@ export default function NotesLibraryScreen() {
     }
 
     return result;
-  }, [notes, search, selectedCategory]);
+  }, [visibleNotes, search, selectedCategory]);
 
-  const approvedCount = useMemo(
-    () => (notes || []).filter((n) => n.status === "APPROVED").length,
-    [notes]
-  );
+  const approvedCount = visibleNotes.length;
 
   const onView = useCallback(async (note: Note) => {
     const access = await ensureViewAccess(note.id);
@@ -329,7 +333,7 @@ export default function NotesLibraryScreen() {
         {/* Stats row */}
         <View style={styles.heroStats}>
           <View style={styles.heroStat}>
-            <Text style={styles.heroStatValue}>{(notes || []).length}</Text>
+            <Text style={styles.heroStatValue}>{visibleNotes.length}</Text>
             <Text style={styles.heroStatLabel}>Total Notes</Text>
           </View>
           <View style={styles.heroStatDivider} />
@@ -397,14 +401,14 @@ export default function NotesLibraryScreen() {
                   styles.filterTabCountText,
                   { color: selectedCategory === null ? "#fff" : colors.primary },
                 ]}>
-                  {(notes || []).length}
+                  {visibleNotes.length}
                 </Text>
               </View>
             </TouchableOpacity>
 
             {categories.map((cat) => {
               const active = selectedCategory === cat;
-              const count = (notes || []).filter((n) => n.category_name === cat).length;
+              const count = visibleNotes.filter((n) => n.category_name === cat).length;
               return (
                 <TouchableOpacity
                   key={cat}

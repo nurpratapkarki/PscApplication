@@ -55,7 +55,12 @@ class NoteViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    @action(detail=True, methods=["post"], url_path="request-access")
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="request-access",
+        permission_classes=[permissions.IsAuthenticated],
+    )
     def request_access(self, request, pk=None):
         note = self.get_object()
         if not note.is_public and note.created_by_id != request.user.id and not request.user.is_staff:
