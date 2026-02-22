@@ -122,6 +122,9 @@
                             <li><a class="dropdown-item" href="{% url 'dashboard:questions' %}">
                                 <i class="fas fa-question-circle me-2"></i>Questions
                             </a></li>
+                            <li><a class="dropdown-item" href="{% url 'dashboard:notes' %}">
+                                <i class="fas fa-book-open me-2"></i>Notes
+                            </a></li>
                             <li><a class="dropdown-item" href="{% url 'dashboard:reports' %}">
                                 <i class="fas fa-flag me-2"></i>Reports
                             </a></li>
@@ -198,6 +201,10 @@
                         <a class="nav-link {% if request.resolver_match.url_name == 'questions' %}active{% endif %}" 
                            href="{% url 'dashboard:questions' %}">
                             <i class="fas fa-question-circle"></i> Questions
+                        </a>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'notes' %}active{% endif %}" 
+                           href="{% url 'dashboard:notes' %}">
+                            <i class="fas fa-book-open"></i> Notes
                         </a>
                         <a class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}" 
                            href="{% url 'dashboard:reports' %}">

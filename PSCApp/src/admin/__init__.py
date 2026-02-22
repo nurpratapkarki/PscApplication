@@ -30,6 +30,7 @@ from .mocktest import (
     MockTestQuestionInline as MockTestQuestionInline,
 )
 from .notification import NotificationAdmin as NotificationAdmin
+from .note import NoteAdmin as NoteAdmin
 from .platform_stats import PlatformStatsAdmin as PlatformStatsAdmin
 from .question_answer import (
     AnswerInline as AnswerInline,

@@ -11,6 +11,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User
+from django.core import signing
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse
@@ -25,6 +26,7 @@ from src.models import (
     DailyActivity,
     MockTest,
     MockTestQuestion,
+    Note,
     Notification,
     PlatformStats,
     Question,
@@ -33,6 +35,8 @@ from src.models import (
 )
 
 logger = logging.getLogger(__name__)
+NOTE_STREAM_MAX_AGE_SECONDS = 15 * 60
+NOTE_STREAM_SIGNING_SALT = "note-stream-access"
 
 # PlatformStats uses singleton pattern with ID 1
 PLATFORM_STATS_SINGLETON_ID = 1
@@ -167,6 +171,142 @@ def contribution_detail(request, pk):
     return render(
         request, "dashboard/contribution_detail.html", {"contribution": contribution}
     )
+
+
+@staff_member_required
+def notes_list(request):
+    """List and filter note contributions."""
+    notes = Note.objects.select_related("created_by", "category").order_by("-created_at")
+
+    status = request.GET.get("status")
+    category = request.GET.get("category")
+    search = request.GET.get("search")
+
+    if status:
+        notes = notes.filter(status=status)
+    if category:
+        notes = notes.filter(category_id=int(category))
+    if search:
+        notes = notes.filter(
+            Q(title_en__icontains=search)
+            | Q(title_np__icontains=search)
+            | Q(description_en__icontains=search)
+            | Q(description_np__icontains=search)
+        )
+
+    pending_count = Note.objects.filter(status="PENDING_REVIEW").count()
+    approved_count = Note.objects.filter(status="APPROVED").count()
+    rejected_count = Note.objects.filter(status="REJECTED").count()
+    categories = Category.objects.filter(is_active=True).order_by("name_en")
+
+    paginator = Paginator(notes, 20)
+    page = request.GET.get("page", 1)
+    notes = paginator.get_page(page)
+
+    return render(
+        request,
+        "dashboard/notes.html",
+        {
+            "notes": notes,
+            "pending_count": pending_count,
+            "approved_count": approved_count,
+            "rejected_count": rejected_count,
+            "categories": categories,
+        },
+    )
+
+
+@staff_member_required
+def note_detail(request, pk):
+    """View note details with embedded file preview."""
+    note = get_object_or_404(
+        Note.objects.select_related("created_by", "category", "reviewed_by"),
+        pk=pk,
+    )
+    signer = signing.TimestampSigner(salt=NOTE_STREAM_SIGNING_SALT)
+    token = signer.sign(f"{note.id}:{request.user.id}")
+    stream_url = f"/api/notes/{note.id}/stream/?token={token}"
+
+    return render(
+        request,
+        "dashboard/note_detail.html",
+        {
+            "note": note,
+            "stream_url": stream_url,
+            "stream_expiry_seconds": NOTE_STREAM_MAX_AGE_SECONDS,
+        },
+    )
+
+
+@staff_member_required
+@require_POST
+def approve_note(request, pk):
+    """Approve a note contribution."""
+    note = get_object_or_404(Note, pk=pk)
+    note.status = "APPROVED"
+    note.is_public = True
+    note.reviewed_by = request.user
+    note.review_notes = request.POST.get("review_notes", "").strip()
+    note.reviewed_at = timezone.now()
+    note.save(
+        update_fields=[
+            "status",
+            "is_public",
+            "reviewed_by",
+            "review_notes",
+            "reviewed_at",
+            "updated_at",
+        ]
+    )
+
+    if note.created_by:
+        Notification.objects.create(
+            user=note.created_by,
+            notification_type="GENERAL",
+            title_en="Note Contribution Approved",
+            title_np="नोट योगदान स्वीकृत भयो",
+            message_en=f'Your note "{note.title_en}" has been approved.',
+            message_np=f'"{note.title_np or note.title_en}" शीर्षकको नोट स्वीकृत भयो।',
+        )
+
+    messages.success(request, f'Note "{note.title_en}" approved.')
+    return redirect("dashboard:note_detail", pk=pk)
+
+
+@staff_member_required
+@require_POST
+def reject_note(request, pk):
+    """Reject a note contribution."""
+    note = get_object_or_404(Note, pk=pk)
+    reason = request.POST.get("review_notes", "").strip()
+    note.status = "REJECTED"
+    note.is_public = False
+    note.reviewed_by = request.user
+    note.review_notes = reason
+    note.reviewed_at = timezone.now()
+    note.save(
+        update_fields=[
+            "status",
+            "is_public",
+            "reviewed_by",
+            "review_notes",
+            "reviewed_at",
+            "updated_at",
+        ]
+    )
+
+    if note.created_by:
+        Notification.objects.create(
+            user=note.created_by,
+            notification_type="GENERAL",
+            title_en="Note Contribution Rejected",
+            title_np="नोट योगदान अस्वीकार भयो",
+            message_en=f'Your note "{note.title_en}" was rejected. Reason: {reason or "Not specified"}',
+            message_np=f'"{note.title_np or note.title_en}" नोट अस्वीकार भयो। कारण: {reason or "उल्लेख छैन"}',
+        )
+
+    messages.warning(request, f'Note "{note.title_en}" rejected.')
+    return redirect("dashboard:note_detail", pk=pk)
 
 
 @staff_member_required

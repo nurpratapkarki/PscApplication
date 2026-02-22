@@ -18,6 +18,7 @@ from src.api.question_answer.serializers import (
     QuestionSerializer,
 )
 from src.models.analytics import Contribution
+from src.models.note import MAX_NOTE_FILE_SIZE_BYTES, Note
 from src.models.question_answer import Answer, Question, QuestionReport
 
 
@@ -531,11 +532,12 @@ class QuestionViewSet(viewsets.ModelViewSet):
     )
     def bulk_upload(self, request):
         """
-        Upload questions in bulk from PDF/Excel/CSV.
-        Each parsed question creates both Question and Contribution records.
+        Upload a note contribution (PDF/DOC/DOCX) instead of bulk questions.
         """
         uploaded_file = request.FILES.get("file")
         category_id = request.data.get("category")
+        note_title = (request.data.get("title") or "").strip()
+        note_description = (request.data.get("description") or "").strip()
 
         if not uploaded_file or not category_id:
             return Response(
@@ -553,59 +555,59 @@ class QuestionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        try:
-            rows = self._parse_uploaded_rows(uploaded_file)
-        except ValueError as exc:
+        file_name = uploaded_file.name or ""
+        extension = Path(file_name).suffix.lower()
+        content_type = uploaded_file.content_type or ""
+        allowed_extensions = {".pdf", ".doc", ".docx"}
+        allowed_content_types = {
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }
+
+        if extension not in allowed_extensions:
             return Response(
-                {"detail": str(exc)},
+                {"detail": "Unsupported file extension. Allowed: .pdf, .doc, .docx."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        created = []
-        errors = []
+        if content_type and content_type not in allowed_content_types:
+            return Response(
+                {"detail": "Unsupported file type. Allowed: PDF, DOC, DOCX."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        for i, row in enumerate(rows, start=1):
-            try:
-                payload = self._build_question_payload(row)
-                with transaction.atomic():
-                    question = Question.objects.create(
-                        question_text_en=payload["question_text_en"],
-                        question_text_np=payload["question_text_np"],
-                        explanation_en=payload["explanation_en"],
-                        explanation_np=payload["explanation_np"],
-                        difficulty_level=payload["difficulty_level"],
-                        category=category,
-                        created_by=request.user,
-                        consent_given=True,
-                        status="DRAFT",
-                    )
-                    answer_objects = [
-                        Answer(
-                            question=question,
-                            answer_text_en=ans["answer_text_en"],
-                            answer_text_np=ans["answer_text_np"],
-                            is_correct=ans["is_correct"],
-                            display_order=ans["display_order"],
-                        )
-                        for ans in payload["answers"]
-                    ]
-                    Answer.objects.bulk_create(answer_objects)
-                    self._create_or_refresh_contribution(
-                        question=question,
-                        user=request.user,
-                    )
-                created.append(question.pk)
-            except Exception as e:
-                errors.append(f"Row {i}: {e}")
+        if uploaded_file.size > MAX_NOTE_FILE_SIZE_BYTES:
+            return Response(
+                {"detail": "File size must not exceed 10 MB."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        inferred_title = Path(file_name).stem.replace("_", " ").strip()
+        title = (note_title or inferred_title or "Untitled Note")[:255]
+
+        with transaction.atomic():
+            note = Note.objects.create(
+                title_en=title,
+                title_np=title,
+                description_en=note_description,
+                description_np=note_description,
+                category=category,
+                document=uploaded_file,
+                created_by=request.user,
+                status="PENDING_REVIEW",
+                is_public=False,
+            )
 
         return Response(
             {
-                "success": len(errors) == 0,
-                "uploaded_count": len(created),
-                "failed_count": len(errors),
-                "errors": errors,
+                "success": True,
+                "uploaded_count": 1,
+                "failed_count": 0,
+                "note_id": note.id,
+                "detail": "Note uploaded successfully and sent for review.",
             },
-            status=status.HTTP_201_CREATED if created else status.HTTP_400_BAD_REQUEST,
+            status=status.HTTP_201_CREATED,
         )
 
     @action(detail=True, methods=["post"])

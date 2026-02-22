@@ -11,6 +11,10 @@ urlpatterns = [
     path("", views.dashboard_index, name="index"),
     # Contributions
     path("contributions/", views.contributions_list, name="contributions"),
+    path("notes/", views.notes_list, name="notes"),
+    path("note/<int:pk>/", views.note_detail, name="note_detail"),
+    path("note/<int:pk>/approve/", views.approve_note, name="approve_note"),
+    path("note/<int:pk>/reject/", views.reject_note, name="reject_note"),
     path(
         "contribution/<int:pk>/",
         views.contribution_detail,

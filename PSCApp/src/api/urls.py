@@ -8,6 +8,7 @@ from src.api.branch.views import (BranchViewSet, CategoryViewSet,
                                   SubBranchViewSet)
 from src.api.mocktest.views import MockTestViewSet
 from src.api.notification.views import NotificationViewSet
+from src.api.note.views import NoteViewSet
 from src.api.platform_stats.views import PlatformStatsViewSet
 from src.api.question_answer.views import (QuestionReportViewSet,
                                            QuestionViewSet)
@@ -26,6 +27,7 @@ router.register(r"categories", CategoryViewSet)
 # Questions & Reports
 router.register(r"questions", QuestionViewSet)
 router.register(r"reports", QuestionReportViewSet)
+router.register(r"notes", NoteViewSet)
 
 # Mock Tests
 router.register(r"mock-tests", MockTestViewSet)

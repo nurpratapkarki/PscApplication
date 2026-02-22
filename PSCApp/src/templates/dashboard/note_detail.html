@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block title %}Note #{{ note.id }} - PSC App{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'dashboard:notes' %}">Notes</a></li>
+                <li class="breadcrumb-item active">Note #{{ note.id }}</li>
+            </ol>
+        </nav>
+        <h2 class="mb-3">
+            <i class="fas fa-book-open me-2"></i>{{ note.title_en }}
+            <span class="badge 
+                {% if note.status == 'PENDING_REVIEW' %}bg-warning
+                {% elif note.status == 'APPROVED' %}bg-success
+                {% else %}bg-danger{% endif %} ms-2">
+                {{ note.get_status_display }}
+            </span>
+        </h2>
+        {% if note.title_np and note.title_np != note.title_en %}
+        <p class="text-muted mb-0">{{ note.title_np }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-file-alt me-2"></i>Note Preview
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    Preview access token expires in {{ stream_expiry_seconds }} seconds.
+                </div>
+                <iframe
+                    src="{{ stream_url }}"
+                    style="width:100%; min-height:700px; border:1px solid #dee2e6; border-radius:8px;"
+                    title="Note Preview">
+                </iframe>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-align-left me-2"></i>Description
+            </div>
+            <div class="card-body">
+                <h6 class="text-muted">English</h6>
+                <p>{{ note.description_en|default:"No description provided." }}</p>
+                <h6 class="text-muted mt-3">Nepali</h6>
+                <p>{{ note.description_np|default:"No description provided." }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i>Metadata
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Category</span>
+                        <strong>{{ note.category.name_en|default:"-" }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Type</span>
+                        <strong>{{ note.document_type }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Size</span>
+                        <strong>{{ note.file_size|filesizeformat }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Contributor</span>
+                        <strong>{{ note.created_by.username|default:"Unknown" }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Submitted</span>
+                        <strong>{{ note.created_at|date:"M d, Y H:i" }}</strong>
+                    </li>
+                    {% if note.reviewed_by %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Reviewed By</span>
+                        <strong>{{ note.reviewed_by.username }}</strong>
+                    </li>
+                    {% endif %}
+                    {% if note.reviewed_at %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Reviewed At</span>
+                        <strong>{{ note.reviewed_at|date:"M d, Y H:i" }}</strong>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-gavel me-2"></i>Review Action
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'dashboard:approve_note' note.id %}" class="mb-3">
+                    {% csrf_token %}
+                    <label class="form-label" for="approve_notes">Review Notes (optional)</label>
+                    <textarea id="approve_notes" name="review_notes" class="form-control mb-2" rows="3"></textarea>
+                    <button type="submit" class="btn btn-success w-100" {% if note.status == 'APPROVED' %}disabled{% endif %}>
+                        <i class="fas fa-check me-1"></i>Approve Note
+                    </button>
+                </form>
+
+                <form method="post" action="{% url 'dashboard:reject_note' note.id %}">
+                    {% csrf_token %}
+                    <label class="form-label" for="reject_notes">Rejection Reason</label>
+                    <textarea id="reject_notes" name="review_notes" class="form-control mb-2" rows="3" required></textarea>
+                    <button type="submit" class="btn btn-danger w-100" {% if note.status == 'REJECTED' %}disabled{% endif %}>
+                        <i class="fas fa-times me-1"></i>Reject Note
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% if note.review_notes %}
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-sticky-note me-2"></i>Latest Review Notes
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{{ note.review_notes }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

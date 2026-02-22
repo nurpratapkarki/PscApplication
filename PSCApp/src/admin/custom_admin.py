@@ -14,7 +14,7 @@ class CustomAdminSite(admin.AdminSite):
         categories = {
             "User Management": ["User", "UserProfile"],
             "Content Structure": ["Branch", "Category", "SubBranch"],
-            "Question Bank": ["Question", "Answer", "QuestionReport"],
+            "Question Bank": ["Question", "Answer", "QuestionReport", "Note"],
             "Exam & Tests": ["MockTest", "UserAttempt"],
             "Analytics & Activity": [
                 "Contribution",

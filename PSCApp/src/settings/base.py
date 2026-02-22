@@ -66,7 +66,7 @@ JAZZMIN_SETTINGS = {
     # Copyright on the footer
     "copyright": "PSC Exam Prep Platform",
     # List of model admins to search from the search bar
-    "search_model": ["auth.User", "src.Question", "src.Contribution"],
+    "search_model": ["auth.User", "src.Question", "src.Contribution", "src.Note"],
     # Field name on user model that contains avatar
     "user_avatar": None,
     #############
@@ -107,6 +107,12 @@ JAZZMIN_SETTINGS = {
                 "permissions": ["auth.view_user"],
             },
             {
+                "name": "Notes Review",
+                "url": "/dashboard/notes/",
+                "icon": "fas fa-book-open",
+                "permissions": ["auth.view_user"],
+            },
+            {
                 "name": "Question Reports",
                 "url": "/dashboard/reports/",
                 "icon": "fas fa-flag",
@@ -134,6 +140,7 @@ JAZZMIN_SETTINGS = {
         "src.Question": "fas fa-question-circle",
         "src.Answer": "fas fa-check-circle",
         "src.QuestionReport": "fas fa-flag",
+        "src.Note": "fas fa-book-open",
         "src.Branch": "fas fa-sitemap",
         "src.Category": "fas fa-folder",
         "src.SubBranch": "fas fa-folder-open",

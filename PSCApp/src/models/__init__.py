@@ -4,6 +4,7 @@ from .attempt_answer import UserAnswer, UserAttempt
 from .branch import Branch, Category, SubBranch
 from .mocktest import MockTest, MockTestQuestion
 from .notification import Notification
+from .note import Note
 from .platform_stats import PlatformStats
 from .question_answer import Answer, Question, QuestionReport
 from .time_config import TimeConfiguration
@@ -23,6 +24,7 @@ __all__ = [
     "MockTest",
     "MockTestQuestion",
     "Notification",
+    "Note",
     "PlatformStats",
     "Answer",
     "Question",
